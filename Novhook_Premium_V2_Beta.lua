@@ -5002,6 +5002,53 @@ VisualsGroup:AddToggle('MapTransparencyToggle', {
 })
 
 VisualsGroup:AddLabel('Skin Changer → Cosmetics 탭')
+
+-- ===== Angel Wings (천사 날개) =====
+local AngelGroup = Tabs.Visuals:AddLeftGroupbox('Angel Wings')
+getgenv().AngelWingsEnabled = false
+getgenv().AngelWingsScale = getgenv().AngelWingsScale or 1.0
+getgenv().AngelWingsColor = getgenv().AngelWingsColor or Color3.fromRGB(80, 255, 255)
+
+AngelGroup:AddToggle('AngelWingsToggle', {
+    Text = 'Angel Wings',
+    Default = false,
+    Callback = function(Value)
+        getgenv().AngelWingsEnabled = Value and true or false
+        if not Value and getgenv().NH_DestroyAngelWings then
+            pcall(getgenv().NH_DestroyAngelWings)
+        end
+    end
+})
+AngelGroup:AddSlider('AngelWingsScale', {
+    Text = 'Wings Size',
+    Default = 1.0,
+    Min = 0.5,
+    Max = 2.5,
+    Rounding = 2,
+    Callback = function(Value)
+        getgenv().AngelWingsScale = tonumber(Value) or 1
+    end
+})
+AngelGroup:AddDropdown('AngelWingsColor', {
+    Values = { 'Cyan', 'White', 'Gold', 'Pink', 'Purple', 'Blue', 'Red' },
+    Default = 1,
+    Multi = false,
+    Text = 'Wings Color',
+    Callback = function(Value)
+        local map = {
+            Cyan = Color3.fromRGB(80, 255, 255),
+            White = Color3.fromRGB(255, 255, 255),
+            Gold = Color3.fromRGB(255, 220, 100),
+            Pink = Color3.fromRGB(255, 140, 200),
+            Purple = Color3.fromRGB(180, 120, 255),
+            Blue = Color3.fromRGB(100, 160, 255),
+            Red = Color3.fromRGB(255, 90, 90),
+        }
+        getgenv().AngelWingsColor = map[tostring(Value)] or map.Cyan
+    end
+})
+AngelGroup:AddLabel('Local aura wings + glow ring')
+
 CustomVisGroup:AddToggle('KillSoundToggle', {
     Text = 'Kill Sound',
     Default = false,
@@ -9141,6 +9188,270 @@ task.spawn(function()
         pcall(applyIconColor, send)
     end
 end)
+
+
+-- =====================================================================
+-- [ANGEL WINGS] 천사 날개 비주얼 (로컬 캐릭터)
+-- =====================================================================
+task.spawn(function()
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local LP = Players.LocalPlayer
+    local wingFolder = nil
+    local flapT = 0
+
+    local function destroyWings()
+        if wingFolder then
+            pcall(function() wingFolder:Destroy() end)
+            wingFolder = nil
+        end
+        local char = LP.Character
+        if char then
+            local old = char:FindFirstChild("NH_AngelWings")
+            if old then pcall(function() old:Destroy() end) end
+        end
+    end
+    getgenv().NH_DestroyAngelWings = destroyWings
+
+    local function makeFeather(parent, name, size, cframe, color, trans)
+        local p = Instance.new("Part")
+        p.Name = name
+        p.Anchored = false
+        p.CanCollide = false
+        p.CanQuery = false
+        p.CanTouch = false
+        p.Massless = true
+        p.Material = Enum.Material.Neon
+        p.Color = color
+        p.Transparency = trans or 0.25
+        p.Size = size
+        p.CFrame = cframe
+        p.CastShadow = false
+        p.Parent = parent
+        local mesh = Instance.new("SpecialMesh")
+        mesh.MeshType = Enum.MeshType.Sphere
+        mesh.Scale = Vector3.new(1, 0.15, 1)
+        mesh.Parent = p
+        return p
+    end
+
+    local function buildWings(char)
+        destroyWings()
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local torso = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or hrp
+        if not hrp or not torso then return end
+
+        local scale = math.clamp(tonumber(getgenv().AngelWingsScale) or 1, 0.5, 2.5)
+        local col = getgenv().AngelWingsColor or Color3.fromRGB(80, 255, 255)
+        local col2 = Color3.new(
+            math.clamp(col.R * 0.7 + 0.3, 0, 1),
+            math.clamp(col.G * 0.9 + 0.1, 0, 1),
+            math.clamp(col.B * 1.0, 0, 1)
+        )
+
+        wingFolder = Instance.new("Folder")
+        wingFolder.Name = "NH_AngelWings"
+        wingFolder.Parent = char
+
+        local attach = Instance.new("Attachment")
+        attach.Name = "NH_WingRoot"
+        attach.Position = Vector3.new(0, 0.4, 0.35)
+        attach.Parent = torso
+
+        -- core glow ball
+        local core = Instance.new("Part")
+        core.Name = "WingCore"
+        core.Shape = Enum.PartType.Ball
+        core.Size = Vector3.new(1.2, 1.2, 1.2) * scale
+        core.Material = Enum.Material.Neon
+        core.Color = Color3.fromRGB(255, 255, 255)
+        core.Transparency = 0.35
+        core.CanCollide = false
+        core.CanQuery = false
+        core.Massless = true
+        core.CastShadow = false
+        core.Parent = wingFolder
+        local weldCore = Instance.new("Weld")
+        weldCore.Part0 = torso
+        weldCore.Part1 = core
+        weldCore.C0 = CFrame.new(0, 0.3, 0.5)
+        weldCore.Parent = core
+
+        local light = Instance.new("PointLight")
+        light.Brightness = 3
+        light.Range = 18 * scale
+        light.Color = col
+        light.Parent = core
+
+        -- particle aura
+        local pe = Instance.new("ParticleEmitter")
+        pe.Name = "Aura"
+        pe.Texture = "rbxassetid://243660364"
+        pe.Color = ColorSequence.new(col, Color3.new(1, 1, 1))
+        pe.Size = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 1.5 * scale),
+            NumberSequenceKeypoint.new(1, 0.2 * scale)
+        })
+        pe.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.3),
+            NumberSequenceKeypoint.new(1, 1)
+        })
+        pe.Lifetime = NumberRange.new(0.4, 0.9)
+        pe.Rate = 40
+        pe.Speed = NumberRange.new(1, 4)
+        pe.SpreadAngle = Vector2.new(40, 40)
+        pe.LightEmission = 1
+        pe.Parent = core
+
+        -- ground ring under character
+        local ring = Instance.new("Part")
+        ring.Name = "GroundRing"
+        ring.Anchored = false
+        ring.CanCollide = false
+        ring.CanQuery = false
+        ring.Massless = true
+        ring.Material = Enum.Material.Neon
+        ring.Color = col
+        ring.Transparency = 0.45
+        ring.Size = Vector3.new(6 * scale, 0.12, 6 * scale)
+        ring.CastShadow = false
+        ring.Parent = wingFolder
+        local ringMesh = Instance.new("SpecialMesh")
+        ringMesh.MeshType = Enum.MeshType.Cylinder
+        ringMesh.Parent = ring
+        local weldRing = Instance.new("Weld")
+        weldRing.Part0 = hrp
+        weldRing.Part1 = ring
+        weldRing.C0 = CFrame.new(0, -2.9, 0) * CFrame.Angles(0, 0, math.rad(90))
+        weldRing.Parent = ring
+
+        local ringPe = Instance.new("ParticleEmitter")
+        ringPe.Texture = "rbxassetid://243660364"
+        ringPe.Color = ColorSequence.new(col)
+        ringPe.Size = NumberSequence.new(0.3, 0.05)
+        ringPe.Transparency = NumberSequence.new(0.2, 1)
+        ringPe.Lifetime = NumberRange.new(0.5, 1.0)
+        ringPe.Rate = 25
+        ringPe.Speed = NumberRange.new(0.5, 2)
+        ringPe.SpreadAngle = Vector2.new(180, 180)
+        ringPe.LightEmission = 0.9
+        ringPe.Parent = ring
+
+        -- build layered wings L/R
+        local function wingSide(sign, sideName)
+            local base = Instance.new("Part")
+            base.Name = sideName .. "Base"
+            base.Size = Vector3.new(0.2, 0.2, 0.2)
+            base.Transparency = 1
+            base.CanCollide = false
+            base.CanQuery = false
+            base.Massless = true
+            base.Parent = wingFolder
+            local weld = Instance.new("Weld")
+            weld.Name = "WingWeld"
+            weld.Part0 = torso
+            weld.Part1 = base
+            weld.C0 = CFrame.new(sign * 0.4, 0.5, 0.6)
+            weld.Parent = base
+
+            -- main wing panels (fan shape)
+            local layers = {
+                { sz = Vector3.new(0.15, 2.8, 1.4), off = CFrame.new(sign * 1.2, 0.8, -0.2) * CFrame.Angles(0, sign * 0.35, sign * 0.5), t = 0.2 },
+                { sz = Vector3.new(0.12, 2.4, 1.2), off = CFrame.new(sign * 1.8, 1.1, -0.1) * CFrame.Angles(0, sign * 0.5, sign * 0.65), t = 0.28 },
+                { sz = Vector3.new(0.1, 2.0, 1.0), off = CFrame.new(sign * 2.4, 1.3, 0.05) * CFrame.Angles(0, sign * 0.65, sign * 0.8), t = 0.35 },
+                { sz = Vector3.new(0.08, 1.5, 0.8), off = CFrame.new(sign * 2.9, 1.5, 0.15) * CFrame.Angles(0, sign * 0.8, sign * 0.95), t = 0.42 },
+                { sz = Vector3.new(0.1, 1.8, 0.9), off = CFrame.new(sign * 1.5, 0.2, -0.3) * CFrame.Angles(0.2, sign * 0.3, sign * 0.4), t = 0.3 },
+                { sz = Vector3.new(0.08, 1.4, 0.7), off = CFrame.new(sign * 2.1, -0.1, -0.2) * CFrame.Angles(0.25, sign * 0.45, sign * 0.55), t = 0.38 },
+            }
+            for i, L in ipairs(layers) do
+                local feather = Instance.new("Part")
+                feather.Name = sideName .. "F" .. i
+                feather.Size = L.sz * scale
+                feather.Material = Enum.Material.Neon
+                feather.Color = (i % 2 == 0) and col2 or col
+                feather.Transparency = L.t
+                feather.CanCollide = false
+                feather.CanQuery = false
+                feather.Massless = true
+                feather.CastShadow = false
+                feather.Parent = wingFolder
+                local sm = Instance.new("SpecialMesh")
+                sm.MeshType = Enum.MeshType.Sphere
+                sm.Scale = Vector3.new(0.35, 1, 1)
+                sm.Parent = feather
+                local fw = Instance.new("Weld")
+                fw.Part0 = base
+                fw.Part1 = feather
+                fw.C0 = L.off
+                fw.Parent = feather
+            end
+            return base
+        end
+
+        local leftBase = wingSide(-1, "L")
+        local rightBase = wingSide(1, "R")
+        wingFolder:SetAttribute("Built", true)
+    end
+
+    local function ensure()
+        if getgenv().AngelWingsEnabled ~= true then
+            destroyWings()
+            return
+        end
+        local char = LP.Character
+        if not char then return end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then
+            destroyWings()
+            return
+        end
+        if not wingFolder or not wingFolder.Parent then
+            buildWings(char)
+        end
+    end
+
+    LP.CharacterAdded:Connect(function()
+        destroyWings()
+        task.wait(0.6)
+        if getgenv().AngelWingsEnabled then ensure() end
+    end)
+
+    RunService.Heartbeat:Connect(function(dt)
+        if getgenv().AngelWingsEnabled ~= true then
+            if wingFolder then destroyWings() end
+            return
+        end
+        ensure()
+        if not wingFolder or not wingFolder.Parent then return end
+        -- gentle flap animation
+        flapT = flapT + (dt or 0.016) * 3.2
+        local flap = math.sin(flapT) * 0.12
+        for _, ch in ipairs(wingFolder:GetChildren()) do
+            if ch.Name == "LBase" or ch.Name == "RBase" then
+                local w = ch:FindFirstChild("WingWeld")
+                if w then
+                    local sign = (ch.Name == "LBase") and -1 or 1
+                    w.C0 = CFrame.new(sign * 0.4, 0.5 + flap * 0.2, 0.6)
+                        * CFrame.Angles(0, 0, sign * flap)
+                end
+            end
+        end
+        -- update color live
+        local col = getgenv().AngelWingsColor or Color3.fromRGB(80, 255, 255)
+        for _, ch in ipairs(wingFolder:GetDescendants()) do
+            if ch:IsA("PointLight") then
+                ch.Color = col
+            elseif ch:IsA("ParticleEmitter") then
+                ch.Color = ColorSequence.new(col, Color3.new(1, 1, 1))
+            elseif ch:IsA("BasePart") and ch.Name ~= "WingCore" and ch.Transparency < 1 then
+                if ch.Name:find("F") or ch.Name == "GroundRing" then
+                    ch.Color = col
+                end
+            end
+        end
+    end)
+end)
+
 
 pcall(function()
     if Library and Library.Notify then
