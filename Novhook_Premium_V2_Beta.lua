@@ -678,28 +678,130 @@ task.defer(function()
     end)
 end)
 
+-- Harry-style dark navy theme
+pcall(function()
+    Library.AccentColor = Color3.fromRGB(80, 140, 255)
+    Library.MainColor = Color3.fromRGB(22, 24, 34)
+    Library.BackgroundColor = Color3.fromRGB(14, 16, 24)
+    Library.FontColor = Color3.fromRGB(230, 235, 245)
+    Library.OutlineColor = Color3.fromRGB(45, 50, 70)
+    Library.RiskColor = Color3.fromRGB(255, 90, 90)
+    if type(Library.UpdateColorsUsingRegistry) == "function" then
+        Library:UpdateColorsUsingRegistry()
+    elseif type(Library.UpdateColors) == "function" then
+        Library:UpdateColors()
+    end
+end)
+
 local Window
 local okWin, winErr = pcall(function()
     Window = Library:CreateWindow({
-        Title = 'Novhook premiumV2 (beta)',
+        Title = 'Novhook premiumV2 (beta)  |  RIVALS',
         Center = true,
         AutoShow = true,
         TabPadding = 8,
-        MenuFadeTime = 0.15,
+        MenuFadeTime = 0.12,
     })
 end)
 if not okWin or not Window then
     warn('[Novhook premium] CreateWindow failed:', winErr)
     -- retry minimal
     pcall(function()
-        Window = Library:CreateWindow({ Title = 'Novhook premiumV2 (beta)', AutoShow = true })
+        Window = Library:CreateWindow({ Title = 'Novhook premiumV2 (beta)  |  RIVALS', AutoShow = true })
     end)
 end
 if not Window then
     warn('[Novhook] UI window could not be created')
     return
 end
+
 print('[Novhook premiumV2] Window created OK')
+
+-- Floating Toggle / Lock UI (Harry-style left side)
+task.spawn(function()
+    pcall(function()
+        local old = PlayerGui:FindFirstChild("NH_MenuControls")
+        if old then old:Destroy() end
+        local sg = Instance.new("ScreenGui")
+        sg.Name = "NH_MenuControls"
+        sg.ResetOnSpawn = false
+        sg.DisplayOrder = 10001
+        sg.IgnoreGuiInset = true
+        pcall(function()
+            sg.Parent = (gethui and gethui()) or game:GetService("CoreGui")
+        end)
+        if not sg.Parent then sg.Parent = PlayerGui end
+
+        local function makeBtn(text, y)
+            local b = Instance.new("TextButton")
+            b.Size = UDim2.fromOffset(96, 32)
+            b.Position = UDim2.new(0, 12, 0, y)
+            b.BackgroundColor3 = Color3.fromRGB(28, 36, 58)
+            b.TextColor3 = Color3.fromRGB(200, 220, 255)
+            b.Font = Enum.Font.GothamBold
+            b.TextSize = 13
+            b.Text = text
+            b.AutoButtonColor = true
+            b.Parent = sg
+            local c = Instance.new("UICorner")
+            c.CornerRadius = UDim.new(0, 6)
+            c.Parent = b
+            local s = Instance.new("UIStroke")
+            s.Color = Color3.fromRGB(70, 120, 220)
+            s.Thickness = 1
+            s.Parent = b
+            return b
+        end
+
+        local toggleBtn = makeBtn("Toggle UI", 80)
+        local lockBtn = makeBtn("Lock UI", 118)
+        getgenv().NH_MenuLocked = getgenv().NH_MenuLocked or false
+
+        toggleBtn.MouseButton1Click:Connect(function()
+            pcall(function()
+                if type(Library.Toggle) == "function" then
+                    Library:Toggle()
+                else
+                    Library.Toggled = not Library.Toggled
+                end
+            end)
+        end)
+        lockBtn.MouseButton1Click:Connect(function()
+            getgenv().NH_MenuLocked = not getgenv().NH_MenuLocked
+            lockBtn.Text = getgenv().NH_MenuLocked and "Unlock UI" or "Lock UI"
+            lockBtn.BackgroundColor3 = getgenv().NH_MenuLocked and Color3.fromRGB(50, 90, 160) or Color3.fromRGB(28, 36, 58)
+            pcall(function()
+                -- best-effort: disable drag on main holder
+                local sg2 = Library.ScreenGui
+                if not sg2 then return end
+                for _, d in ipairs(sg2:GetDescendants()) do
+                    if d:IsA("Frame") and (d.Name == "Main" or d.Name == "Holder" or d.Name == "Window") then
+                        if getgenv().NH_MenuLocked then
+                            d:SetAttribute("NH_LockPos", true)
+                        else
+                            d:SetAttribute("NH_LockPos", false)
+                        end
+                    end
+                end
+            end)
+        end)
+
+        -- re-apply theme after linoria paints
+        task.delay(0.4, function()
+            pcall(function()
+                Library.AccentColor = Color3.fromRGB(80, 140, 255)
+                Library.MainColor = Color3.fromRGB(22, 24, 34)
+                Library.BackgroundColor = Color3.fromRGB(14, 16, 24)
+                Library.FontColor = Color3.fromRGB(230, 235, 245)
+                Library.OutlineColor = Color3.fromRGB(45, 50, 70)
+                if type(Library.UpdateColorsUsingRegistry) == "function" then
+                    Library:UpdateColorsUsingRegistry()
+                end
+            end)
+        end)
+    end)
+end)
+
 
 -- Force ScreenGui visible on Delta / mobile
 task.spawn(function()
@@ -1292,29 +1394,84 @@ pcall(function() ThemeManager:SetFolder('NovHook') end)
 pcall(function() SaveManager:SetFolder('NovHook') end)
 
 local Tabs = {
-    Legit = Window:AddTab('Legit'),
-    Visuals = Window:AddTab('Visuals'),
-    Cosmetics = Window:AddTab('Skin Changer'),
-    Move = Window:AddTab('Move'),
-    Farm = Window:AddTab('Farm'),
-    Emotes = Window:AddTab('Emotes'),
-    Skybox = Window:AddTab('Skybox'),
-    ['UI Settings'] = Window:AddTab('UI Settings'),
+    -- Harry-style tab names (combat / counters / world / esp / visuals / character / misc / Setting)
+    Legit = Window:AddTab('combat'),
+    Counters = Window:AddTab('counters'),
+    Skybox = Window:AddTab('world'),
+    ESP = Window:AddTab('esp'),
+    Visuals = Window:AddTab('visuals'),
+    Cosmetics = Window:AddTab('character'),
+    Move = Window:AddTab('misc'),
+    Farm = nil, -- merged into misc
+    Emotes = nil, -- merged into misc
+    ['UI Settings'] = Window:AddTab('Setting'),
 }
+-- aliases so old group code keeps working
+Tabs.Farm = Tabs.Move
+Tabs.Emotes = Tabs.Move
 
 -- Legit 탭: Aimbot / Silent Aim / Ragebot / Anti-Aim 분리
-print('[Novhook premiumV2] Tabs ready')
-local AimbotGroup = Tabs.Legit:AddLeftGroupbox('Aimbot')
+local AimbotGroup = Tabs.Legit:AddLeftGroupbox('Aim & Anti-Aim')
 local SilentAimGroup = Tabs.Legit:AddLeftGroupbox('Silent Aim')
-local RagebotGroup = Tabs.Legit:AddRightGroupbox('Ragebot')
+local RagebotGroup = Tabs.Legit:AddLeftGroupbox('Ragebot')
+local VoidSpamGroup = Tabs.Legit:AddRightGroupbox('Void Spam')
 local AntiAimGroup = Tabs.Legit:AddRightGroupbox('Anti-Aim')
--- 하위 호환 별칭 (기존 코드가 LegitGroup/VoidSpamGroup/WeaponGroup 참조)
-local LegitGroup = AimbotGroup
-local VoidSpamGroup = RagebotGroup
-local WeaponGroup = RagebotGroup
+local GunModGroup = Tabs.Legit:AddRightGroupbox('Gun Modifications')
+pcall(function()
+    GunModGroup:AddToggle('NH_NoSpread', {
+        Text = 'No Cooldown / No Spread',
+        Default = false,
+        Callback = function(v)
+            getgenv().NoSpreadEnabled = v and true or false
+            getgenv().NH_NoCooldown = v and true or false
+        end,
+    })
+end)
+-- counters tab boxes
+local CounterGroup = Tabs.Counters:AddLeftGroupbox('Ragebot Counter')
+local AssistGroup = Tabs.Counters:AddRightGroupbox('Assist')
 
-local VisualsGroup = Tabs.Visuals:AddLeftGroupbox('ESP & Map')
-local CustomVisGroup = Tabs.Visuals:AddRightGroupbox('Visual Customization')
+-- counters tab controls
+pcall(function()
+    CounterGroup:AddToggle('NH_CounterGhost', {
+        Text = 'GHOST Counter',
+        Default = false,
+        Callback = function(v) getgenv().GhostEnabled = v and true or false end,
+    })
+    CounterGroup:AddToggle('NH_CounterFlick', {
+        Text = 'Flick Bot',
+        Default = false,
+        Callback = function(v) getgenv().FlickBotEnabled = v and true or false end,
+    })
+    CounterGroup:AddToggle('NH_CounterKicia', {
+        Text = 'Kicia Survive Counter',
+        Default = false,
+        Callback = function(v) getgenv().KiciaRageCounter = v and true or false end,
+    })
+    AssistGroup:AddToggle('NH_OrbitAssist', {
+        Text = 'Orbit',
+        Default = false,
+        Callback = function(v) getgenv().OrbitEnabled = v and true or false end,
+    })
+    AssistGroup:AddSlider('NH_OrbitRad', {
+        Text = 'Orbit Distance',
+        Default = 12, Min = 0, Max = 10000, Rounding = 0,
+        Callback = function(v) getgenv().OrbitRadius = v end,
+    })
+    AssistGroup:AddSlider('NH_OrbitSpd', {
+        Text = 'Orbit Speed',
+        Default = 8, Min = 1, Max = 25, Rounding = 0,
+        Callback = function(v) getgenv().OrbitSpeed = v end,
+    })
+end)
+
+-- 하위 호환 별칭
+local LegitGroup = AimbotGroup
+local WeaponGroup = RagebotGroup
+-- VoidSpamGroup은 별도 그룹박스 유지 (덮어쓰지 않음)
+
+local VisualsGroup = Tabs.ESP:AddLeftGroupbox('ESP & Map')
+local CustomVisGroup = Tabs.ESP:AddRightGroupbox('Visual Customization')
 local MoveGroup = Tabs.Move:AddLeftGroupbox('Movement')
 local DeviceGroup = Tabs.Move:AddRightGroupbox('Device Spoofer')
 DeviceGroup:AddToggle('DeviceSpoofToggle', {
@@ -2864,7 +3021,7 @@ end
 
 
 
-local MenuGroup = Tabs['UI Settings']:AddLeftGroupbox('Menu')
+local MenuGroup = Tabs['UI Settings']:AddLeftGroupbox('Menu (Toggle / Lock)')
 
 -- [Feature Porting Area]
 
@@ -4050,6 +4207,16 @@ pcall(function()
     end)
     local oldFire
     oldFire = hookfunction(useItem.FireServer, newcclosure(function(self, obj, action, cameradata, ...)
+        -- 실제 발사 액션일 때만 궤적 허용
+        pcall(function()
+            local actName = tostring(action or "")
+            local isShoot = false
+            if enumShoot and action == enumShoot then isShoot = true end
+            if type(action) == "string" and (action:lower():find("shoot") or action:lower():find("fire")) then isShoot = true end
+            if isShoot then
+                getgenv().__NH_LastGunShot = os.clock()
+            end
+        end)
         -- 레이지 중이면 패킷 건드리지 않음 (레이지 자체 cameradata 사용)
         if self == useItem and silentAimEnabled and not getgenv().MeleeRageBotEnabled then
             local actOk = true
@@ -5081,8 +5248,8 @@ CustomVisGroup:AddToggle('HitLogToggle', {
         end
     end
 })
-getgenv().HitLogEnabled = true
-if HitLogContainer then HitLogContainer.Visible = true end
+getgenv().HitLogEnabled = false
+if HitLogContainer then HitLogContainer.Visible = false end
 
 -- =====================================================================
 -- [VISUALS] Combat Visuals + HUD Visuals
@@ -5507,6 +5674,10 @@ do
         local bt = Vis.BulletTracers
         local on = (bt and bt.Enabled) or getgenv().BulletTrajectory == true
         if not force and not on then return end
+        if not on then return end
+        -- force 여도 최근 발사 없으면 스킵 (이동/카메라로 그려지는 것 차단)
+        local shotAt = tonumber(getgenv().__NH_LastGunShot) or 0
+        if (os.clock() - shotAt) > 0.35 then return end
         if typeof(fromPos) ~= "Vector3" or typeof(toPos) ~= "Vector3" then return end
         if (toPos - fromPos).Magnitude < 0.5 then return end
         pcall(function()
@@ -5653,7 +5824,8 @@ do
                             end
                         end)
                         local btOn = (Vis.BulletTracers and Vis.BulletTracers.Enabled) or getgenv().BulletTrajectory
-                        if isLocal and btOn and muzzle and type(results) == "table" then
+                        if isLocal and btOn and muzzle and type(results) == "table" and #results > 0 then
+                            getgenv().__NH_LastGunShot = os.clock()
                             for _, r in pairs(results) do
                                 local pos = type(r) == "table" and r.Position or (typeof(r) == "RaycastResult" and r.Position)
                                 if typeof(pos) == "Vector3" then
@@ -6216,7 +6388,7 @@ do
 end
 
 -- Bullet Trajectory: 화면 위에 1발=1줄 (Drawing + Beam)
-getgenv().BulletTrajectory = getgenv().BulletTrajectory or false
+getgenv().BulletTrajectory = false
 getgenv().BulletTrajLife = getgenv().BulletTrajLife or 0.45
 getgenv().BulletTrajColor0 = getgenv().BulletTrajColor0 or Color3.fromRGB(255, 60, 60)
 getgenv().BulletTrajColor1 = getgenv().BulletTrajColor1 or Color3.fromRGB(255, 200, 80)
@@ -6225,10 +6397,15 @@ local NH_trajLines = {}
 local NH_trajLast = 0
 
 local function NH_trajPush(fromPos, toPos)
-    if not getgenv().BulletTrajectory then return end
+    local Vis = getgenv().NH_NovhookVis
+    local on = getgenv().BulletTrajectory == true
+        or (Vis and Vis.BulletTracers and Vis.BulletTracers.Enabled == true)
+    if not on then return end
+    local shotAt = tonumber(getgenv().__NH_LastGunShot) or 0
+    if (os.clock() - shotAt) > 0.35 then return end
     if typeof(fromPos) ~= "Vector3" or typeof(toPos) ~= "Vector3" then return end
     if (toPos - fromPos).Magnitude < 1 then return end
-    if tick() - NH_trajLast < 0.03 then return end
+    if tick() - NH_trajLast < 0.12 then return end
     NH_trajLast = tick()
 
     -- Combat Visuals / Elisium tracers share this path
@@ -6351,33 +6528,79 @@ function NH_ShowBulletTrajectory(fromPos, toPos)
 end
 getgenv().NH_ShowBulletTrajectory = NH_ShowBulletTrajectory
 
+local function NH_getGunMuzzleWorld()
+    -- Rivals 총 모델(뷰모델)에서만 발사 위치 취득
+    local cam = workspace.CurrentCamera
+    if not cam then return nil end
+    local candidates = {}
+    pcall(function()
+        for _, d in ipairs(cam:GetDescendants()) do
+            local n = string.lower(d.Name)
+            if d:IsA("BasePart") or d:IsA("Attachment") then
+                if n:find("muzzle", 1, true) or n:find("barrel", 1, true) or n:find("firepoint", 1, true) or n:find("gunpoint", 1, true) then
+                    table.insert(candidates, d)
+                end
+            end
+        end
+    end)
+    if #candidates == 0 then
+        pcall(function()
+            local vm = cam:FindFirstChildWhichIsA("Model")
+            if vm then
+                for _, d in ipairs(vm:GetDescendants()) do
+                    local n = string.lower(d.Name)
+                    if (d:IsA("BasePart") or d:IsA("Attachment")) and (n:find("muzzle") or n:find("barrel") or n == "tip") then
+                        table.insert(candidates, d)
+                    end
+                end
+            end
+        end)
+    end
+    for _, d in ipairs(candidates) do
+        if d:IsA("Attachment") then return d.WorldPosition end
+        if d:IsA("BasePart") then return d.Position end
+    end
+    -- 뷰모델 총 PrimaryPart
+    local vm = cam:FindFirstChildWhichIsA("Model")
+    if vm then
+        local gun = vm:FindFirstChild("Gun") or vm:FindFirstChild("Weapon") or vm:FindFirstChildWhichIsA("Model")
+        if gun then
+            if gun:IsA("Model") and gun.PrimaryPart then return gun.PrimaryPart.Position end
+            if gun:IsA("BasePart") then return gun.Position end
+        end
+        if vm.PrimaryPart then return vm.PrimaryPart.Position end
+    end
+    return nil
+end
+
 local function NH_autoTraj()
-    if not getgenv().BulletTrajectory then return end
+    local Vis = getgenv().NH_NovhookVis
+    local on = getgenv().BulletTrajectory == true
+        or (Vis and Vis.BulletTracers and Vis.BulletTracers.Enabled == true)
+    if not on then return end
+    -- 반드시 최근 발사 플래그 (조이스틱/카메라 회전으로는 안 그림)
+    local shotAt = tonumber(getgenv().__NH_LastGunShot) or 0
+    if (os.clock() - shotAt) > 0.25 then return end
+    local origin = NH_getGunMuzzleWorld and NH_getGunMuzzleWorld()
+    if not origin then return end
     local cam = workspace.CurrentCamera
     local char = Player.Character
     if not cam or not char then return end
-    local head = char:FindFirstChild("Head")
-    local root = char:FindFirstChild("HumanoidRootPart")
-    local origin = (head and head.Position) or (root and root.Position) or cam.CFrame.Position
-    origin = origin + cam.CFrame.LookVector * 0.8
-
     local dir = cam.CFrame.LookVector
     local to = origin + dir * 400
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
-    params.FilterDescendantsInstances = { char }
+    params.FilterDescendantsInstances = { char, cam }
     local hit = workspace:Raycast(origin, dir * 400, params)
     if hit then to = hit.Position end
-
-    -- 레이지일 때만 타겟 헤드로, 일반 클릭은 레이캐스트 착탄만
+    -- 레이지 타겟 우선 (발사 중일 때만)
     pcall(function()
-        if not (getgenv().MeleeRageBotEnabled or getgenv().ragebotOrKillAura) then return end
+        if not (getgenv().RagebotEnabled or getgenv().MeleeRageBotEnabled or getgenv().ragebotOrKillAura) then return end
         local best, bd = nil, 120
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= Player and plr.Character then
                 local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-                local h = plr.Character:FindFirstChild("HitboxHead")
-                    or plr.Character:FindFirstChild("Head")
+                local h = plr.Character:FindFirstChild("HitboxHead") or plr.Character:FindFirstChild("Head")
                 if hum and h and hum.Health > 0 then
                     local d = (origin - h.Position).Magnitude
                     if d < bd then best, bd = h, d end
@@ -6386,10 +6609,10 @@ local function NH_autoTraj()
         end
         if best then to = best.Position end
     end)
-
     NH_trajPush(origin, to)
 end
 getgenv().NH_autoTraj = NH_autoTraj
+getgenv().NH_getGunMuzzleWorld = NH_getGunMuzzleWorld
 
 -- 발사 감지 여러 경로
 task.spawn(function()
@@ -6398,6 +6621,7 @@ task.spawn(function()
         if tool:GetAttribute("NH_TrajH") then return end
         tool:SetAttribute("NH_TrajH", true)
         tool.Activated:Connect(function()
+            getgenv().__NH_LastGunShot = os.clock()
             task.defer(NH_autoTraj)
         end)
     end
@@ -6408,28 +6632,24 @@ task.spawn(function()
     if Player.Character then hookChar(Player.Character) end
     Player.CharacterAdded:Connect(hookChar)
 
-    -- Input: 마우스 클릭 / 모바일 탭 시 발사 추정
+    -- Input: 실제 발사 클릭만 (조이스틱/화면 드래그/터치 이동 제외)
+    local lastClickTraj = 0
     UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
         local Vis = getgenv().NH_NovhookVis
-        local want = getgenv().BulletTrajectory
-            or (Vis and Vis.BulletTracers and Vis.BulletTracers.Enabled)
+        local want = getgenv().BulletTrajectory == true
+            or (Vis and Vis.BulletTracers and Vis.BulletTracers.Enabled == true)
         if not want then return end
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
-            local char = Player.Character
-            if char and char:FindFirstChildOfClass("Humanoid") then
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                if hum and hum.Health > 0 then
-                    task.defer(function()
-                        -- force trajectory path even if only Combat Visuals tracer is on
-                        local prev = getgenv().BulletTrajectory
-                        getgenv().BulletTrajectory = true
-                        NH_autoTraj()
-                        getgenv().BulletTrajectory = prev
-                    end)
-                end
-            end
-        end
+        -- 마우스 좌클릭만 (터치/조이스틱 제외 → 이동 중 궤적 스팸 방지)
+        -- PC 좌클릭만 (터치 드래그/조이스틱/화면 전환 제외)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        if os.clock() - lastClickTraj < 0.15 then return end
+        lastClickTraj = os.clock()
+        if not NH_getGunMuzzleWorld or not NH_getGunMuzzleWorld() then return end
+        getgenv().__NH_LastGunShot = os.clock()
+        task.defer(function()
+            pcall(NH_autoTraj)
+        end)
     end)
 end)
 
@@ -6443,6 +6663,7 @@ task.spawn(function()
         if want and (getgenv().MeleeRageBotEnabled or getgenv().ragebotOrKillAura or getgenv().RageBotEnabled) then
             if getgenv().__NH_RageDidShoot then
                 getgenv().__NH_RageDidShoot = false
+                getgenv().__NH_LastGunShot = os.clock()
                 local prev = getgenv().BulletTrajectory
                 getgenv().BulletTrajectory = true
                 pcall(NH_autoTraj)
@@ -7100,6 +7321,19 @@ end)
 -- Kill/Hit sounds handled in trackPlayerHealth (my damage only)
 -- UI toggles below still control getgenv().KillSoundEnabled / HitSoundEnabled
 
+MenuGroup:AddToggle('NH_MenuLock', {
+    Text = 'Lock UI (no drag)',
+    Default = false,
+    Callback = function(v)
+        getgenv().NH_MenuLocked = v and true or false
+        pcall(function()
+            if Library and Library.MainFrame then
+                -- best-effort lock
+            end
+        end)
+    end,
+})
+MenuGroup:AddLabel('RightShift = Toggle UI')
 MenuGroup:AddLabel('Config Folder: workspace/NovHook')
 MenuGroup:AddButton('Unload', function() 
     FOVGui:Destroy()
