@@ -695,6 +695,34 @@ task.spawn(function()
     end
     print('[Novhook premium] UI force-visible loop done')
 end)
+
+-- Continuous UI watchdog (Delta / mobile / PC)
+task.spawn(function()
+    local tries = 0
+    while tries < 60 do
+        tries = tries + 1
+        pcall(function()
+            if not Library then return end
+            Library.Toggled = true
+            if Library.ScreenGui then
+                Library.ScreenGui.Enabled = true
+                Library.ScreenGui.DisplayOrder = 10000
+                pcall(function() Library.ScreenGui.IgnoreGuiInset = true end)
+                pcall(function()
+                    local parent = (gethui and gethui()) or game:GetService("CoreGui")
+                    if Library.ScreenGui.Parent ~= parent then
+                        Library.ScreenGui.Parent = parent
+                    end
+                end)
+            end
+            if type(Library.Toggle) == "function" and Library.Toggled == false then
+                pcall(function() Library:Toggle() end)
+            end
+        end)
+        task.wait(0.2)
+    end
+end)
+
 -- CLICK FIX: only hide FOV overlays, do NOT close Linoria menu
 task.spawn(function()
     local t0 = tick()
@@ -3100,21 +3128,6 @@ LegitGroup:AddLabel('FOV Second Color'):AddColorPicker('FOVSecondColorPicker', {
             ColorSequenceKeypoint.new(0.501, Value),
             ColorSequenceKeypoint.new(1, Value)
         })
-        FOVGradient.Rotation = 0
-        FOVGradient.Color = seq
-        -- TargetFOV removed
-    end
-})
-
-
-        FOVGradient.Rotation = 0
-        FOVGradient.Color = seq
-        -- TargetFOV removed
-        FOVStroke.Color = Value
-        -- TargetFOV removed
-    end
-})
-
         FOVGradient.Rotation = 0
         FOVGradient.Color = seq
         -- TargetFOV removed
@@ -8271,6 +8284,20 @@ task.spawn(function()
             local pattern, pScore = classify(p)
             local vel = velOf(p)
             local pred = head.Position + vel * 0.1
+            -- V2 matrix: 더 긴 리드 + 가속도 + 거리 보정
+            pcall(function()
+                local predFn = rawget(getgenv(), "NH_GhostPredictPos")
+                if type(predFn) == "function" then
+                    local p2 = predFn(head)
+                    if typeof(p2) == "Vector3" then pred = p2 end
+                else
+                    local boost = tonumber(getgenv().NH_GHOST_LEAD_BOOST) or 1.75
+                    local dist = (head.Position - me.Position).Magnitude
+                    local lead = (0.1 + math.clamp(dist / 800, 0, 0.14)) * boost
+                    if vel.Magnitude > 90 then lead = lead * 1.3 end
+                    pred = head.Position + vel * lead
+                end
+            end)
             local counters = buildCounters(p, head, pred, vel, pattern)
             local method = pickMethod(counters, mode)
             if not method then continue end
@@ -8675,28 +8702,44 @@ end)
 
 -- =====================================================================
 
--- GHOST prediction boost (V2)
-getgenv().NH_GHOST_LEAD_BOOST = 1.45
-getgenv().NH_GHOST_HISTORY = getgenv().NH_GHOST_HISTORY or {}
+-- GHOST prediction matrix V2 (multi-sample + accel + distance lead)
+getgenv().NH_GHOST_LEAD_BOOST = 1.85
+getgenv().NH_GHOST_SAMPLES = getgenv().NH_GHOST_SAMPLES or {}
 local function NH_GhostPredictPos(part)
     if not part or not part.Parent then return nil end
     local pos = part.Position
     local vel = Vector3.zero
     pcall(function() vel = part.AssemblyLinearVelocity end)
-    local boost = tonumber(getgenv().NH_GHOST_LEAD_BOOST) or 1.45
-    -- 가속도 근사
-    local hist = getgenv().NH_GHOST_HISTORY
+    local boost = tonumber(getgenv().NH_GHOST_LEAD_BOOST) or 1.85
+    local samples = getgenv().NH_GHOST_SAMPLES
     local key = tostring(part)
     local now = os.clock()
-    local prev = hist[key]
-    local accel = Vector3.zero
-    if prev and (now - prev.t) > 0.01 and (now - prev.t) < 0.25 then
-        accel = (vel - prev.v) / math.max(now - prev.t, 0.01)
+    local list = samples[key]
+    if type(list) ~= "table" then list = {} samples[key] = list end
+    table.insert(list, { t = now, p = pos, v = vel })
+    while #list > 10 do table.remove(list, 1) end
+    local avgV = vel
+    if #list >= 2 then
+        local a, b = list[1], list[#list]
+        local dt = math.max(b.t - a.t, 0.001)
+        avgV = (b.p - a.p) / dt
+        avgV = avgV:Lerp(vel, 0.3)
     end
-    hist[key] = { t = now, v = vel, p = pos }
-    local leadT = 0.08 * boost
-    return pos + vel * leadT + accel * (leadT * leadT * 0.5)
+    local accel = Vector3.zero
+    if #list >= 3 then
+        local mid = list[math.floor(#list / 2)]
+        local dt2 = math.max(list[#list].t - mid.t, 0.001)
+        accel = (list[#list].v - mid.v) / dt2
+    end
+    local dist = 50
+    local cam = workspace.CurrentCamera
+    if cam then dist = (pos - cam.CFrame.Position).Magnitude end
+    local leadT = (0.06 + math.clamp(dist / 850, 0, 0.15)) * boost
+    if avgV.Magnitude > 80 then leadT = leadT * 1.25 end
+    if avgV.Magnitude > 160 then leadT = leadT * 1.2 end
+    return pos + avgV * leadT + accel * (leadT * leadT * 0.5)
 end
+getgenv().NH_GhostPredictPos = NH_GhostPredictPos
 
 -- [FLICK BOT] 헤드 순간 조준 → 복귀 (사격 타이밍 맞춤)
 -- =====================================================================
@@ -8767,19 +8810,25 @@ task.spawn(function()
         if not aimPart then return end
         lastFlick = os.clock()
         local from = cam.CFrame
-        local toPos = aimPart.Position
-        -- 강한 속도 리드 + GHOST 힌트
+                local toPos = aimPart.Position
+        -- GHOST 예측 매트릭스 리드
         pcall(function()
-            local v = aimPart.AssemblyLinearVelocity
-            if typeof(v) == "Vector3" then
-                toPos = toPos + v * (0.081 + (1 - spd) * 0.08)
+            local predFn = rawget(getgenv(), "NH_GhostPredictPos")
+            if type(predFn) == "function" then
+                local pred = predFn(aimPart)
+                if typeof(pred) == "Vector3" then toPos = pred end
+            else
+                local v = aimPart.AssemblyLinearVelocity
+                if typeof(v) == "Vector3" then
+                    toPos = toPos + v * ((0.09 + (1 - spd) * 0.1) * (tonumber(getgenv().NH_GHOST_LEAD_BOOST) or 1.75))
+                end
             end
             local hint = getgenv().__NH_GhostAimPart
-            if hint and hint.Parent then
-                toPos = hint.Position + (typeof(hint.AssemblyLinearVelocity) == "Vector3" and hint.AssemblyLinearVelocity * 0.05 or Vector3.zero)
+            if hint and hint.Parent and type(predFn) == "function" then
+                local pred2 = predFn(hint)
+                if typeof(pred2) == "Vector3" then toPos = pred2 end
             end
         end)
-        -- 거의 즉시 스냅 (고속)
         local look = CFrame.new(cam.CFrame.Position, toPos)
         local alpha = math.clamp(0.75 + spd * 0.25, 0.75, 1)
         cam.CFrame = from:Lerp(look, alpha)
