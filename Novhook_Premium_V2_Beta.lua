@@ -515,11 +515,57 @@ do
         Library = nil
     end
     if not loaded or not Library then
-        warn('[Novhook premium] Linoria Library load FAIL — all mirrors')
-        warn('[Novhook premium] Enable HTTP / use Delta, Wave, Solara, etc.')
+        warn('[Novhook] Linoria load FAIL — retry once...')
+        task.wait(0.5)
+        for _, repo in ipairs(LINORIA_MIRRORS) do
+            Library = loadFromRepo(repo, 'Library.lua')
+            if Library and type(Library) == 'table' and Library.CreateWindow then
+                loaded = true
+                pcall(function() ThemeManager = loadFromRepo(repo, 'addons/ThemeManager.lua') end)
+                pcall(function() SaveManager = loadFromRepo(repo, 'addons/SaveManager.lua') end)
+                break
+            end
+            Library = nil
+        end
+    end
+    if not loaded or not Library then
+        warn('[Novhook] Linoria still FAIL — building fallback UI')
+        -- minimal fallback menu so user still sees something
+        local sg = Instance.new('ScreenGui')
+        sg.Name = 'NovhookFallback'
+        sg.ResetOnSpawn = false
+        sg.DisplayOrder = 9999
+        pcall(function()
+            sg.Parent = (gethui and gethui()) or game:GetService('CoreGui')
+        end)
+        if not sg.Parent then
+            pcall(function()
+                sg.Parent = game:GetService('Players').LocalPlayer:WaitForChild('PlayerGui')
+            end)
+        end
+        local fr = Instance.new('Frame')
+        fr.Size = UDim2.fromOffset(320, 160)
+        fr.Position = UDim2.fromScale(0.5, 0.5)
+        fr.AnchorPoint = Vector2.new(0.5, 0.5)
+        fr.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+        fr.Parent = sg
+        local c = Instance.new('UICorner', fr)
+        c.CornerRadius = UDim.new(0, 10)
+        local t = Instance.new('TextLabel')
+        t.Size = UDim2.new(1, -16, 1, -16)
+        t.Position = UDim2.fromOffset(8, 8)
+        t.BackgroundTransparency = 1
+        t.TextColor3 = Color3.fromRGB(255, 120, 120)
+        t.TextWrapped = true
+        t.Font = Enum.Font.GothamBold
+        t.TextSize = 14
+        t.Text = 'Novhook: Linoria library failed to load.\nEnable HTTP requests in executor.\nRejoin and run again.'
+        t.Parent = fr
         return
     end
 end
+print('[Novhook premiumV2] Linoria Library OK')
+if getgenv then getgenv().__NH_LOADED = true end
 
 -- stubs so nil Theme/Save never crash UI build
 if type(ThemeManager) ~= 'table' then
@@ -650,9 +696,10 @@ if not okWin or not Window then
     end)
 end
 if not Window then
-    warn('[Novhook premium] UI window could not be created')
+    warn('[Novhook] UI window could not be created')
     return
 end
+print('[Novhook premiumV2] Window created OK')
 
 -- Force ScreenGui visible on Delta / mobile
 task.spawn(function()
@@ -804,6 +851,7 @@ local constructingWeapon, viewingProfile = nil, nil
 local lastUsedWeapon = nil
 
 local function cloneCosmetic(name, cosmeticType, options)
+    if not (CosmeticLibrary and CosmeticLibrary.Cosmetics) then return nil end
     local base = CosmeticLibrary.Cosmetics[name]
     if not base then return nil end
     local data = {}
@@ -859,17 +907,25 @@ local function loadConfig()
     end)
 end
 
-local originalOwnsCosmetic = CosmeticLibrary.OwnsCosmetic
+local originalOwnsCosmetic = nil
+if CosmeticLibrary and type(CosmeticLibrary) == "table" then
+originalOwnsCosmetic = CosmeticLibrary.OwnsCosmetic
 CosmeticLibrary.OwnsCosmetic = function(self, inventory, name, weapon)
-    if name:find("MISSING_") then return originalOwnsCosmetic(self, inventory, name, weapon) end
-    local cosmetic = CosmeticLibrary.Cosmetics[name]
+    local function orig(...)
+        if type(originalOwnsCosmetic) == "function" then
+            return originalOwnsCosmetic(...)
+        end
+        return true
+    end
+    if type(name) == "string" and name:find("MISSING_") then return orig(self, inventory, name, weapon) end
+    local cosmetic = CosmeticLibrary.Cosmetics and CosmeticLibrary.Cosmetics[name]
     if cosmetic then
         local cType = cosmetic.Type
-        if cType == "Skin" or cType == "Charm" or cType == "Dance" or cType == "Emote" or cType == "Wrap" or cType == "Wrapping" or name:lower():find("charm") or name:lower():find("dance") or name:lower():find("emote") or name:lower():find("wrap") then
+        if cType == "Skin" or cType == "Charm" or cType == "Dance" or cType == "Emote" or cType == "Wrap" or cType == "Wrapping" or (type(name)=="string" and (name:lower():find("charm") or name:lower():find("dance") or name:lower():find("emote") or name:lower():find("wrap"))) then
             return true
         end
     end
-    return originalOwnsCosmetic(self, inventory, name, weapon)
+    return orig(self, inventory, name, weapon)
 end
 
 CosmeticLibrary.OwnsCosmeticNormally = function(self, inventory, name, weapon)
@@ -885,14 +941,20 @@ CosmeticLibrary.OwnsCosmeticUniversally = function(self, inventory, name, weapon
 end
 
 CosmeticLibrary.OwnsCosmeticForWeapon = function(self, inventory, name, weapon)
-    local cosmetic = CosmeticLibrary.Cosmetics[name]
+    local cosmetic = CosmeticLibrary.Cosmetics and CosmeticLibrary.Cosmetics[name]
     if cosmetic and cosmetic.Type == "Skin" then return true end
     return false
 end
+end -- CosmeticLibrary guard
 
+if DataController and type(DataController) == "table" then
 local originalGet = DataController.Get
 DataController.Get = function(self, key)
-    local data = originalGet(self, key)
+    local data = nil
+    if type(originalGet) == "function" then
+        local ok, res = pcall(originalGet, self, key)
+        if ok then data = res end
+    end
     if key == "CosmeticInventory" then
         local proxy = {}
         if data then for k, v in pairs(data) do 
@@ -1174,6 +1236,9 @@ if viewModelModule then
     end
 end
 
+end -- DataController guard
+
+if ItemLibrary and type(ItemLibrary) == "table" then
 ItemLibrary.GetViewModelImageFromWeaponData = function(self, weaponData, highRes)
     if not weaponData then return nil end
     local weaponName = weaponData.Name
@@ -1184,6 +1249,7 @@ ItemLibrary.GetViewModelImageFromWeaponData = function(self, weaponData, highRes
     end
     return nil
 end
+end -- ItemLibrary guard
 
 local EmoteController
 pcall(function() 
@@ -1192,7 +1258,7 @@ pcall(function()
         local originalGetEmotes = EmoteController.GetEmotes
         EmoteController.GetEmotes = function(self)
             local emotes = originalGetEmotes(self)
-            for name, cosmetic in pairs(CosmeticLibrary.Cosmetics) do
+            for name, cosmetic in pairs((CosmeticLibrary and CosmeticLibrary.Cosmetics) or {}) do
                 if cosmetic and (cosmetic.Type == "Dance" or cosmetic.Type == "Emote" or name:lower():find("dance") or name:lower():find("emote")) then
                     if not emotes[name] then
                         emotes[name] = { Name = name, Type = cosmetic.Type, ObjectID = cosmetic.ObjectID, Enum = cosmetic.Enum }
@@ -1237,6 +1303,7 @@ local Tabs = {
 }
 
 -- Legit 탭: Aimbot / Silent Aim / Ragebot / Anti-Aim 분리
+print('[Novhook premiumV2] Tabs ready')
 local AimbotGroup = Tabs.Legit:AddLeftGroupbox('Aimbot')
 local SilentAimGroup = Tabs.Legit:AddLeftGroupbox('Silent Aim')
 local RagebotGroup = Tabs.Legit:AddRightGroupbox('Ragebot')
