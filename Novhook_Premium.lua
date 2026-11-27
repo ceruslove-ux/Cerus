@@ -1169,11 +1169,15 @@ local Tabs = {
     ['UI Settings'] = Window:AddTab('UI Settings'),
 }
 
-local LegitGroup = Tabs.Legit:AddLeftGroupbox('Combat & Aimbot')
+-- Legit 탭: Aimbot / Silent Aim / Ragebot / Anti-Aim 분리
+local AimbotGroup = Tabs.Legit:AddLeftGroupbox('Aimbot')
 local SilentAimGroup = Tabs.Legit:AddLeftGroupbox('Silent Aim')
-local VoidSpamGroup = Tabs.Legit:AddRightGroupbox('Void Spam')
-local WeaponGroup = Tabs.Legit:AddRightGroupbox('Weapon & Rage Config')
+local RagebotGroup = Tabs.Legit:AddRightGroupbox('Ragebot')
 local AntiAimGroup = Tabs.Legit:AddRightGroupbox('Anti-Aim')
+-- 하위 호환 별칭 (기존 코드가 LegitGroup/VoidSpamGroup/WeaponGroup 참조)
+local LegitGroup = AimbotGroup
+local VoidSpamGroup = RagebotGroup
+local WeaponGroup = RagebotGroup
 
 local VisualsGroup = Tabs.Visuals:AddLeftGroupbox('ESP & Map')
 local CustomVisGroup = Tabs.Visuals:AddRightGroupbox('Visual Customization')
@@ -2881,7 +2885,7 @@ RunService.RenderStepped:Connect(function(dt)
     end
 end)
 
--- [Legit 그룹박스 기능]
+-- [Aimbot 그룹박스]
 LegitGroup:AddToggle('AimbotToggle', {
     Text = 'Aimbot (Players & NPCs)',
     Default = false,
@@ -3042,7 +3046,8 @@ end)
 
 -- old complex void removed (void at EOF)
 
--- Void Spam UI 등록 생성
+-- ===== Ragebot: Void Spam =====
+VoidSpamGroup:AddLabel('— Void Spam —')
 VoidSpamGroup:AddToggle('VoidSpamEnable', {
     Text = 'Void Spam',
     Default = false,
@@ -3129,7 +3134,7 @@ getgenv().BaitingEnabled = false
 getgenv().BaitAmp = getgenv().BaitAmp or 220
 getgenv().BaitDepth = getgenv().BaitDepth or 35
 
--- [Silent Aim 그룹박스 기능]
+-- [Silent Aim 그룹박스]
 SilentAimGroup:AddToggle('SilentAimToggle', {
     Text = 'Silent Aim Enabled',
     Default = false,
@@ -3710,6 +3715,7 @@ do
     getgenv().__NH_ApplyUnder = function() end
 end
 
+WeaponGroup:AddLabel('— Core Rage —')
 WeaponGroup:AddToggle('RageBotToggle', {
     Text = 'RageBot (Universal)',
     Default = false,
@@ -3766,6 +3772,7 @@ WeaponGroup:AddToggle('KnifeModeToggle', {
 })
 getgenv().KnifeModeEnabled = false
 
+WeaponGroup:AddLabel('— Orbit —')
 WeaponGroup:AddToggle('OrbitToggle', {
     Text = 'Orbit (오르빗)',
     Default = false,
@@ -3799,6 +3806,7 @@ WeaponGroup:AddSlider('OrbitSpeedSlider', {
 })
 getgenv().OrbitSpeed = 8
 
+WeaponGroup:AddLabel('— GHOST Matrix —')
 WeaponGroup:AddToggle('GhostToggle', {
     Text = 'GHOST (예측 매트릭스)',
     Default = false,
@@ -3837,12 +3845,12 @@ getgenv().GhostCounterMode = 'Auto'
 
 WeaponGroup:AddToggle('GhostExecuteToggle', {
     Text = 'GHOST Execute Counter',
-    Default = true,
+    Default = false,
     Callback = function(Value)
         getgenv().GhostExecute = Value and true or false
     end
 })
-getgenv().GhostExecute = true
+getgenv().GhostExecute = false
 
 WeaponGroup:AddToggle('CounterToggle', {
     Text = 'Counter (레이지 카운터 회피)',
@@ -3992,6 +4000,7 @@ task.spawn(function()
     end
 end)
 
+WeaponGroup:AddLabel('— Rage Counter —')
 WeaponGroup:AddToggle('LionRageCounterToggle', {
     Text = 'Unnamed Counter',
     Default = false,
@@ -4036,6 +4045,7 @@ getgenv().FakePositionEnabled = false
 
 
 
+WeaponGroup:AddLabel('— Baiting —')
 WeaponGroup:AddToggle('BaitingToggle', {
     Text = 'Baiting (짧게 노출)',
     Default = false,
@@ -4350,7 +4360,7 @@ VisualsGroup:AddToggle('MapTransparencyToggle', {
 VisualsGroup:AddLabel('Skin Changer → Cosmetics 탭')
 CustomVisGroup:AddToggle('KillSoundToggle', {
     Text = 'Kill Sound',
-    Default = true,
+    Default = false,
     Callback = function(Value) getgenv().KillSoundEnabled = Value end
 })
 CustomVisGroup:AddDropdown('KillSoundSelect', {
@@ -7528,7 +7538,7 @@ task.spawn(function()
 
     getgenv().GhostMatrix = tonumber(getgenv().GhostMatrix) or 12
     getgenv().GhostCounterMode = getgenv().GhostCounterMode or "Auto"
-    getgenv().GhostExecute = getgenv().GhostExecute ~= false
+    getgenv().GhostExecute = getgenv().GhostExecute == true
 
     getgenv().__NH_GhostTarget = nil
     getgenv().__NH_GhostAimPart = nil
