@@ -471,8 +471,7 @@ do
                 SaveManager = loadFromRepo(repo, 'addons/SaveManager.lua')
             end)
             loaded = true
-            print('[Novhook premium] Linoria loaded from', repo)
-            break
+                        break
         end
         Library = nil
     end
@@ -518,6 +517,24 @@ do
 end
 
 getgenv().__NH_UseSleepyCore = true -- 구형 레이지 루프 비활성
+
+
+-- Force all major features OFF until user enables (manual toggle)
+do
+    local off = {
+        'AimbotEnabled','SilentAimEnabled','TriggerbotEnabled','RagebotEnabled',
+        'VoidSpamEnabled','OrbitEnabled','GhostEnabled','AntiAimEnabled',
+        'FlyEnabled','ESPEnabled','BaitingEnabled','KnifeModeEnabled',
+        'UnnamedCounter','KiciaRageCounter','LionRageCounter','DeviceSpoofEnabled',
+    }
+    for _,k in ipairs(off) do
+        if getgenv()[k] == nil then getgenv()[k] = false end
+    end
+    getgenv().VoidSpamEnabled = false
+    getgenv().OrbitEnabled = false
+    getgenv().GhostEnabled = false
+    getgenv().AntiAimEnabled = false
+end
 
 Library.ShowCustomCursor = false
 getgenv().SilentFOVShow = false
@@ -2995,17 +3012,17 @@ LegitGroup:AddSlider('FOVSpinSpeedSlider', {
 -- 낙사 높이 이하로 절대 안 감 / 맵 밖 Y 클램프
 local VoidSpamSettings = {
     on = false,
-    voidHideTime = 0.30,
-    attackTime = 0.40,
+    voidHideTime = 0.25,
+    attackTime = 0.03,
     voidRange = 8000,    -- X/Z 범위 (50 ~ 500000)
     voidRangeY = 3000,
     voidBaseY = -12000,
     backstepDelay = 0.02,
     orbitRadius = 14,
-    pulseAmp = 5.0,
-    chaos = 1.8,
-    skyHeight = 45,
-    underDepth = 12,
+    pulseAmp = 12.0,
+    chaos = 3.5,
+    skyHeight = 55,
+    underDepth = 18,
 }
 getgenv().VoidSpamCFG = {
     hideTime = VoidSpamSettings.voidHideTime,
@@ -3037,9 +3054,9 @@ VoidSpamGroup:AddToggle('VoidSpamEnable', {
 
 VoidSpamGroup:AddSlider('VoidHideTime', {
     Text = 'Hide Time',
-    Default = 0.30,
-    Min = 0.05,
-    Max = 3,
+    Default = 0.25,
+    Min = 0.01,
+    Max = 1,
     Rounding = 2,
     Callback = function(v)
         VoidSpamSettings.voidHideTime = v
@@ -3050,9 +3067,9 @@ VoidSpamGroup:AddSlider('VoidHideTime', {
 
 VoidSpamGroup:AddSlider('VoidAttackTime', {
     Text = 'Attack Time',
-    Default = 0.40,
-    Min = 0.05,
-    Max = 3,
+    Default = 0.03,
+    Min = 0.01,
+    Max = 1,
     Rounding = 2,
     Callback = function(v)
         VoidSpamSettings.attackTime = v
@@ -3115,7 +3132,7 @@ getgenv().BaitDepth = getgenv().BaitDepth or 35
 -- [Silent Aim 그룹박스 기능]
 SilentAimGroup:AddToggle('SilentAimToggle', {
     Text = 'Silent Aim Enabled',
-    Default = true,
+    Default = false,
     Callback = function(Value)
         silentAimEnabled = Value
         local _ssh = Value and (silentAimShowEnabled or false)
@@ -3760,21 +3777,21 @@ getgenv().OrbitEnabled = false
 
 WeaponGroup:AddSlider('OrbitRadiusSlider', {
     Text = 'Orbit Radius',
-    Default = 6,
-    Min = 2,
-    Max = 20,
-    Rounding = 1,
+    Default = 0,
+    Min = 0,
+    Max = 10000,
+    Rounding = 0,
     Callback = function(Value)
         getgenv().OrbitRadius = Value
     end
 })
-getgenv().OrbitRadius = 6
+getgenv().OrbitRadius = 0
 
 WeaponGroup:AddSlider('OrbitSpeedSlider', {
     Text = 'Orbit Speed',
-    Default = 8,
+    Default = 12,
     Min = 1,
-    Max = 25,
+    Max = 40,
     Rounding = 1,
     Callback = function(Value)
         getgenv().OrbitSpeed = Value
@@ -4052,14 +4069,15 @@ AntiAimGroup:AddToggle('AntiAimToggle', {
 })
 
 AntiAimGroup:AddDropdown('AntiAimModeDropdown', {
-    Values = { 'Random', 'Jitter', 'Shooter', 'Spin', 'FastSpin', 'Freestanding', 'Fake Head', 'Sideways', 'Backwards', 'Opposite', 'JitterPitch' },
-    Default = 'Jitter',
+    Values = { 'Random', 'Jitter', 'Shooter', 'Spin', 'FastSpin', 'Freestanding', 'Fake Head', 'Sideways', 'Backwards', 'Opposite', 'JitterPitch', 'OrbitAA', 'Underground', 'SkyFlick', 'MicroJitter' },
+    Default = 1,
     Multi = false,
     Text = 'Anti-Aim Mode',
     Callback = function(Value)
         getgenv().AntiAimMode = Value
     end
 })
+getgenv().AntiAimMode = getgenv().AntiAimMode or 'Jitter'
 
 AntiAimGroup:AddSlider('AntiAimAngleSlider', {
     Text = 'Anti-Aim Angle',
@@ -4071,6 +4089,47 @@ AntiAimGroup:AddSlider('AntiAimAngleSlider', {
         getgenv().AntiAimAngle = Value
     end
 })
+
+AntiAimGroup:AddToggle('AA_PitchDown', {
+    Text = 'Pitch Down',
+    Default = false,
+    Callback = function(Value)
+        getgenv().AA_PitchDown = Value and true or false
+    end
+})
+AntiAimGroup:AddToggle('AA_YawJitter', {
+    Text = 'Extra Yaw Jitter',
+    Default = false,
+    Callback = function(Value)
+        getgenv().AA_YawJitter = Value and true or false
+    end
+})
+AntiAimGroup:AddToggle('AA_SpinBody', {
+    Text = 'Body Spin',
+    Default = false,
+    Callback = function(Value)
+        getgenv().AA_SpinBody = Value and true or false
+    end
+})
+AntiAimGroup:AddToggle('AA_DesyncHint', {
+    Text = 'Desync Hint',
+    Default = false,
+    Callback = function(Value)
+        getgenv().AA_DesyncHint = Value and true or false
+    end
+})
+AntiAimGroup:AddSlider('AA_SpinSpeed', {
+    Text = 'Spin Speed',
+    Default = 12,
+    Min = 1,
+    Max = 40,
+    Rounding = 0,
+    Callback = function(Value)
+        getgenv().AA_SpinSpeed = Value
+    end
+})
+getgenv().AA_SpinSpeed = 12
+
 
 -- Aimbot: hard lock head inside FOV (no soft spray)
 getgenv().AimbotEnabled = getgenv().AimbotEnabled or false
@@ -6902,7 +6961,7 @@ task.spawn(function()
 
     getgenv().VoidSpamCFG = getgenv().VoidSpamCFG or {
         hideTime = 0.45,
-        attackTime = 0.08,
+        attackTime = 0.03,
         voidRangeX = 12000,
         voidRangeY = 4000,
         voidRangeZ = 12000,
@@ -6935,8 +6994,8 @@ task.spawn(function()
             if VoidSpamSettings.voidBaseY then c.voidBaseY = VoidSpamSettings.voidBaseY end
         end
         -- 생존 기본: hide >= attack
-        c.hideTime = math.clamp(tonumber(c.hideTime) or 0.45, 0.01, 1)
-        c.attackTime = math.clamp(tonumber(c.attackTime) or 0.08, 0.01, 1)
+        c.hideTime = math.clamp(tonumber(c.hideTime) or 0.25, 0.01, 1)
+        c.attackTime = math.clamp(tonumber(c.attackTime) or 0.03, 0.01, 1)
         c.voidRangeX = math.clamp(tonumber(c.voidRangeX) or 12000, 50, 500000)
         c.voidRangeY = math.clamp(tonumber(c.voidRangeY) or 4000, 50, 500000)
         c.voidRangeZ = math.clamp(tonumber(c.voidRangeZ) or 12000, 50, 500000)
@@ -6999,14 +7058,36 @@ task.spawn(function()
             local th = S.target.Character:FindFirstChild("HumanoidRootPart")
             if th then base = th.Position end
         end
-        -- 매 틱 다른 사분면으로 튀기 (추적 끊기)
-        local qx = (S.phase % 2 == 0) and 1 or -1
-        local qz = (S.phase % 4 < 2) and 1 or -1
-        local rx = base.X + qx * (c.voidRangeX * (0.4 + math.random() * 0.6))
-        local ry = c.voidBaseY + math.random(-c.voidRangeY, c.voidRangeY)
-        local rz = base.Z + qz * (c.voidRangeZ * (0.4 + math.random() * 0.6))
+        -- 초고속 랜덤 사분면 + XYZ 흔들기 (추적 거의 불가)
+        local dirs = {
+            {1,1},{-1,1},{1,-1},{-1,-1},
+            {1,0},{-1,0},{0,1},{0,-1},
+            {0.7,0.7},{-0.7,0.7},{0.7,-0.7},{-0.7,-0.7}
+        }
+        local d = dirs[(S.phase % #dirs) + 1]
+        local chaos = 1.0 + (math.random() * 1.5)
+        local rx = base.X + d[1] * (c.voidRangeX * (0.35 + math.random() * 0.85)) * chaos
+        local ry = c.voidBaseY + (math.random() - 0.5) * 2 * c.voidRangeY * chaos
+        -- Y 흔들기 강화 (매 틱 다른 높이)
+        ry = ry + math.sin(os.clock() * 28 + S.phase) * math.min(2500, c.voidRangeY * 0.15)
+        local rz = base.Z + d[2] * (c.voidRangeZ * (0.35 + math.random() * 0.85)) * chaos
+        -- 거리 유지: 적이 가까우면 더 멀리
+        if S.target and isAlive(S.target) then
+            local th = S.target.Character and S.target.Character:FindFirstChild("HumanoidRootPart")
+            if th then
+                local dist = (Vector3.new(rx, base.Y, rz) - th.Position).Magnitude
+                if dist < 40 then
+                    local away = (Vector3.new(rx, 0, rz) - Vector3.new(th.Position.X, 0, th.Position.Z))
+                    if away.Magnitude > 1 then
+                        away = away.Unit * (80 + math.random() * 120)
+                        rx = th.Position.X + away.X
+                        rz = th.Position.Z + away.Z
+                    end
+                end
+            end
+        end
 
-        if tick() - S.lastVoid > 0.012 then
+        if tick() - S.lastVoid > 0.008 then
             if math.abs(hrp.Position.Y - c.voidBaseY) > 4000 then
                 -- keep saved
             else
@@ -7020,9 +7101,9 @@ task.spawn(function()
         pcall(function()
             hrp.CFrame = CFrame.new(rx, ry, rz)
             hrp.AssemblyLinearVelocity = Vector3.new(
-                math.random(-3500, 3500),
-                math.random(-2000, 2000),
-                math.random(-3500, 3500)
+                math.random(-8000, 8000),
+                math.random(-5000, 5000),
+                math.random(-8000, 8000)
             )
             hrp.AssemblyAngularVelocity = Vector3.new(
                 math.random(-150, 150),
@@ -7939,6 +8020,19 @@ task.spawn(function()
         return ok and r
     end
 
+    -- Orbit slots: Left / Left-Center / Right / Right-Center / Center / Center-Left / Center-Right
+    local ORBIT_SLOTS = {
+        { -1.00, 0.00 }, -- Left
+        { -0.70, 0.35 }, -- Left-Center
+        {  1.00, 0.00 }, -- Right
+        {  0.70, 0.35 }, -- Right-Center
+        {  0.00, 0.00 }, -- Center
+        { -0.50, 0.00 }, -- Center-Left
+        {  0.50, 0.00 }, -- Center-Right
+        {  0.00, 0.55 }, -- Center-Front
+        {  0.00,-0.55 }, -- Center-Back
+    }
+    local slotIdx, slotTimer = 1, 0
     RunService.Heartbeat:Connect(function(dt)
         if not getgenv().OrbitEnabled then return end
         if NH_isLobby and NH_isLobby() then return end
@@ -7956,12 +8050,24 @@ task.spawn(function()
             end
         end
         if not best then return end
-        local rad = tonumber(getgenv().OrbitRadius) or 6
+        local rad = math.max(0, tonumber(getgenv().OrbitRadius) or 0)
         local spd = tonumber(getgenv().OrbitSpeed) or 8
-        angle = angle + spd * (dt or 0.016)
-        local offset = Vector3.new(math.cos(angle) * rad, 3, math.sin(angle) * rad)
+        -- 빠른 슬롯 전환 (랜덤 방향 패턴)
+        slotTimer = slotTimer + (dt or 0.016)
+        local switchEvery = math.max(0.04, 0.22 - (spd * 0.006))
+        if slotTimer >= switchEvery then
+            slotTimer = 0
+            slotIdx = math.random(1, #ORBIT_SLOTS)
+        end
+        local slot = ORBIT_SLOTS[slotIdx]
+        -- 미세 지터 + 상하 흔들림
+        local jx = (math.random() - 0.5) * math.min(4, rad * 0.08 + 1)
+        local jz = (math.random() - 0.5) * math.min(4, rad * 0.08 + 1)
+        local jy = 2 + math.sin(os.clock() * (6 + spd * 0.4)) * 3
+        local offset = Vector3.new(slot[1] * rad + jx, jy, slot[2] * rad + jz)
         hrp.CFrame = CFrame.new(best.Position + offset, best.Position)
         hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
     end)
 end)
 
@@ -8135,7 +8241,6 @@ end)
 
 pcall(function()
     if Library and Library.Notify then
-        Library:Notify('Novhook premium loaded — RightShift to toggle menu', 5)
+        -- Library:Notify muted
     end
 end)
-print('[Novhook premium] loaded OK')
