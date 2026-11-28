@@ -1441,8 +1441,94 @@ local LegitGroup = AimbotGroup
 local VoidSpamGroup = RagebotGroup
 local WeaponGroup = RagebotGroup
 
-local VisualsGroup = Tabs.Visuals:AddLeftGroupbox('ESP & Map')
-local CustomVisGroup = Tabs.Visuals:AddRightGroupbox('Visual Customization')
+-- Visuals: Viewmodel Override + Damage Numbers (ESP moved to ESP tab)
+local VMOverrideGroup = Tabs.Visuals:AddLeftGroupbox('Viewmodel Override')
+local DmgNumGroup = Tabs.Visuals:AddRightGroupbox('Damage Numbers')
+local VisFXGroup = Tabs.Visuals:AddLeftGroupbox('Visual FX')
+-- keep alias so later code referencing VisualsGroup / CustomVisGroup does not error
+local VisualsGroup = VisFXGroup
+local CustomVisGroup = DmgNumGroup
+
+getgenv().NH_VM = getgenv().NH_VM or {
+    weapon_chams = false, weapon_color = Color3.fromRGB(255,255,255), weapon_mat = 'Neon', weapon_trans = 0,
+    arm_chams = false, arm_color = Color3.fromRGB(255,255,255), arm_mat = 'Neon', arm_trans = 0, arm_invisible = false,
+    weapon_hl = false, weapon_hl_color = Color3.fromRGB(255,255,255), weapon_hl_fill = 0.5,
+    arm_hl = false, arm_hl_color = Color3.fromRGB(255,255,255), arm_hl_fill = 0.5,
+    offset_enable = false, ox = 0, oy = 0, oz = 0,
+    custom_enable = false,
+    body_color_on = false, body_color = Color3.fromRGB(255,255,255),
+    body_mat_on = false, body_mat = 'ForceField', body_no_clothes = false, body_trans = 0,
+    item_color_on = false, item_color = Color3.fromRGB(255,255,255),
+    item_mat_on = false, item_mat = 'ForceField', item_trans = 0,
+    wireframe = false, disable_textures = false, recoil = false,
+}
+getgenv().NH_DmgNum = getgenv().NH_DmgNum or {
+    enable = false, remove_ingame = false, color_type = 'Gradient',
+    color1 = Color3.fromRGB(255,80,80), color2 = Color3.fromRGB(255,210,90),
+    font = 'GothamBold', duration = 0.8, rise = 42, text_size = 18,
+}
+
+local MATS = {'Neon','ForceField','Glass','SmoothPlastic','Plastic','Metal','Foil'}
+
+VMOverrideGroup:AddToggle('VM_WeaponChams', { Text = 'Weapon Chams', Default = false, Callback = function(v) getgenv().NH_VM.weapon_chams = v end })
+VMOverrideGroup:AddDropdown('VM_WeaponMat', { Text = 'Weapon Material', Values = MATS, Default = 1, Callback = function(v) getgenv().NH_VM.weapon_mat = tostring(v) end })
+VMOverrideGroup:AddSlider('VM_WeaponTrans', { Text = 'Weapon Transparency', Default = 0, Min = 0, Max = 1, Rounding = 2, Callback = function(v) getgenv().NH_VM.weapon_trans = v end })
+pcall(function()
+    VMOverrideGroup:AddLabel('Weapon Color'):AddColorPicker('VM_WeaponColor', {
+        Default = Color3.fromRGB(255,255,255), Title = 'Weapon Color',
+        Callback = function(c) getgenv().NH_VM.weapon_color = c end,
+    })
+end)
+
+VMOverrideGroup:AddToggle('VM_ArmChams', { Text = 'Arm Chams', Default = false, Callback = function(v) getgenv().NH_VM.arm_chams = v end })
+VMOverrideGroup:AddToggle('VM_ArmInvisible', { Text = 'Arms Invisible', Default = false, Callback = function(v) getgenv().NH_VM.arm_invisible = v end })
+VMOverrideGroup:AddDropdown('VM_ArmMat', { Text = 'Arm Material', Values = MATS, Default = 1, Callback = function(v) getgenv().NH_VM.arm_mat = tostring(v) end })
+VMOverrideGroup:AddSlider('VM_ArmTrans', { Text = 'Arm Transparency', Default = 0, Min = 0, Max = 1, Rounding = 2, Callback = function(v) getgenv().NH_VM.arm_trans = v end })
+pcall(function()
+    VMOverrideGroup:AddLabel('Arm Color'):AddColorPicker('VM_ArmColor', {
+        Default = Color3.fromRGB(255,255,255), Title = 'Arm Color',
+        Callback = function(c) getgenv().NH_VM.arm_color = c end,
+    })
+end)
+
+VMOverrideGroup:AddToggle('VM_WeaponHL', { Text = 'Weapon Highlight', Default = false, Callback = function(v) getgenv().NH_VM.weapon_hl = v end })
+VMOverrideGroup:AddToggle('VM_ArmHL', { Text = 'Arm Highlight', Default = false, Callback = function(v) getgenv().NH_VM.arm_hl = v end })
+VMOverrideGroup:AddToggle('VM_OffsetEnable', { Text = 'Viewmodel Offset', Default = false, Callback = function(v) getgenv().NH_VM.offset_enable = v end })
+VMOverrideGroup:AddSlider('VM_OX', { Text = 'Offset X', Default = 0, Min = -5, Max = 5, Rounding = 2, Callback = function(v) getgenv().NH_VM.ox = v end })
+VMOverrideGroup:AddSlider('VM_OY', { Text = 'Offset Y', Default = 0, Min = -5, Max = 5, Rounding = 2, Callback = function(v) getgenv().NH_VM.oy = v end })
+VMOverrideGroup:AddSlider('VM_OZ', { Text = 'Offset Z', Default = 0, Min = -5, Max = 5, Rounding = 2, Callback = function(v) getgenv().NH_VM.oz = v end })
+VMOverrideGroup:AddToggle('VM_Wireframe', { Text = 'Wireframe', Default = false, Callback = function(v) getgenv().NH_VM.wireframe = v end })
+VMOverrideGroup:AddToggle('VM_DisableTex', { Text = 'Disable Textures', Default = false, Callback = function(v) getgenv().NH_VM.disable_textures = v end })
+VMOverrideGroup:AddToggle('VM_Recoil', { Text = 'Recoil Override', Default = false, Callback = function(v) getgenv().NH_VM.recoil = v end })
+VMOverrideGroup:AddToggle('VM_CustomBody', { Text = 'Body Color Override', Default = false, Callback = function(v) getgenv().NH_VM.body_color_on = v end })
+VMOverrideGroup:AddToggle('VM_CustomItem', { Text = 'Item Color Override', Default = false, Callback = function(v) getgenv().NH_VM.item_color_on = v end })
+VMOverrideGroup:AddToggle('VM_NoClothes', { Text = 'Disable Clothes', Default = false, Callback = function(v) getgenv().NH_VM.body_no_clothes = v end })
+
+DmgNumGroup:AddToggle('DmgNumEnable', { Text = 'Damage Numbers', Default = false, Callback = function(v) getgenv().NH_DmgNum.enable = v end })
+DmgNumGroup:AddToggle('DmgNumRemoveIngame', { Text = 'Remove In-Game Numbers', Default = false, Callback = function(v) getgenv().NH_DmgNum.remove_ingame = v end })
+DmgNumGroup:AddDropdown('DmgNumColorType', {
+    Text = 'Color Type', Values = {'Solid','Gradient'}, Default = 2,
+    Callback = function(v) getgenv().NH_DmgNum.color_type = tostring(v) end,
+})
+pcall(function()
+    DmgNumGroup:AddLabel('Color 1'):AddColorPicker('DmgNumC1', {
+        Default = Color3.fromRGB(255,80,80), Title = 'Color 1',
+        Callback = function(c) getgenv().NH_DmgNum.color1 = c end,
+    })
+    DmgNumGroup:AddLabel('Color 2'):AddColorPicker('DmgNumC2', {
+        Default = Color3.fromRGB(255,210,90), Title = 'Color 2',
+        Callback = function(c) getgenv().NH_DmgNum.color2 = c end,
+    })
+end)
+DmgNumGroup:AddSlider('DmgNumSize', { Text = 'Text Size', Default = 18, Min = 10, Max = 48, Rounding = 0, Callback = function(v) getgenv().NH_DmgNum.text_size = v end })
+DmgNumGroup:AddSlider('DmgNumDuration', { Text = 'Duration', Default = 0.8, Min = 0.2, Max = 3, Rounding = 2, Callback = function(v) getgenv().NH_DmgNum.duration = v end })
+DmgNumGroup:AddSlider('DmgNumRise', { Text = 'Rise', Default = 42, Min = 0, Max = 120, Rounding = 0, Callback = function(v) getgenv().NH_DmgNum.rise = v end })
+
+VisFXGroup:AddLabel('ESP is in ESP tab')
+VisFXGroup:AddToggle('MapTransparencyToggleVis', {
+    Text = 'Map Transparency', Default = false,
+    Callback = function(v) getgenv().MapTransparency = v and true or false end,
+})
 
 -- ===================== UE ESP TAB (full) =====================
 local ESPBoxG = Tabs.ESP:AddLeftGroupbox('ESP Box')
@@ -1603,6 +1689,20 @@ ESPXHairG:AddToggle('UE_CrosshairBounce', { Text = 'Bounce', Default = false, Ca
 ESPXHairG:AddToggle('UE_CrosshairRot', { Text = 'Rotation', Default = false, Callback = function(v) getgenv().UE_CrosshairRot = v end })
 ESPXHairG:AddToggle('UE_CrosshairOutline', { Text = 'Outline', Default = true, Callback = function(v) getgenv().UE_CrosshairOutline = v end })
 ESPXHairG:AddToggle('UE_DisableGameXhair', { Text = 'Disable Game Crosshair', Default = false, Callback = function(v) getgenv().UE_DisableGameXhair = v end })
+getgenv().UE_CrosshairColor1 = getgenv().UE_CrosshairColor1 or Color3.fromRGB(255, 255, 255)
+getgenv().UE_CrosshairColor2 = getgenv().UE_CrosshairColor2 or Color3.fromRGB(120, 200, 255)
+getgenv().UE_CrosshairDual = getgenv().UE_CrosshairDual or false
+ESPXHairG:AddToggle('UE_CrosshairDual', { Text = 'Dual Color', Default = false, Callback = function(v) getgenv().UE_CrosshairDual = v end })
+pcall(function()
+    ESPXHairG:AddLabel('Color 1'):AddColorPicker('UE_XhairC1', {
+        Default = Color3.fromRGB(255,255,255), Title = 'Crosshair Color 1',
+        Callback = function(c) getgenv().UE_CrosshairColor1 = c end,
+    })
+    ESPXHairG:AddLabel('Color 2'):AddColorPicker('UE_XhairC2', {
+        Default = Color3.fromRGB(120,200,255), Title = 'Crosshair Color 2',
+        Callback = function(c) getgenv().UE_CrosshairColor2 = c end,
+    })
+end)
 
 ESPHitG:AddToggle('HitEffectsEnabled', { Text = 'Hit Effects', Default = false, Callback = function(v) getgenv().HitEffectsEnabled = v end })
 ESPHitG:AddToggle('HitEffectsDisableMarker', { Text = 'Disable Hit Marker', Default = false, Callback = function(v) getgenv().HitEffectsDisableMarker = v end })
@@ -5269,61 +5369,7 @@ RunService:BindToRenderStep("Nova Aimbot", Enum.RenderPriority.Camera.Value + 1,
     end
 end)
 
-VisualsGroup:AddToggle('EspMasterToggle', {
-    Text = 'ESP Enabled',
-    Default = false,
-    Callback = function(Value) getgenv().ESPEnabled = Value end
-})
-getgenv().ESPEnabled = false
-
-VisualsGroup:AddToggle('NameEspToggle', {
-    Text = 'Name ESP',
-    Default = false,
-    Callback = function(Value)
-        getgenv().NameEnabled = Value
-        if Value then getgenv().ESPEnabled = true end
-    end
-})
-
-VisualsGroup:AddToggle('BoxEspToggle', {
-    Text = 'Box ESP',
-    Default = false,
-    Callback = function(Value)
-        getgenv().ESPBox = Value
-        if Value then getgenv().ESPEnabled = true end
-    end
-})
-getgenv().ESPBox = false
-
-VisualsGroup:AddToggle('SkeletonEspToggle', {
-    Text = 'Skeleton ESP',
-    Default = false,
-    Callback = function(Value)
-        getgenv().ESPSkeleton = Value
-        if Value then getgenv().ESPEnabled = true end
-    end
-})
-getgenv().ESPSkeleton = false
-
-VisualsGroup:AddToggle('HealthEspToggle', {
-    Text = 'Health Bar ESP',
-    Default = false,
-    Callback = function(Value)
-        getgenv().HealthEnabled = Value
-        if Value then getgenv().ESPEnabled = true end
-    end
-})
-getgenv().HealthEnabled = false
-
-VisualsGroup:AddToggle('DistanceEspToggle', {
-    Text = 'Distance ESP',
-    Default = false,
-    Callback = function(Value)
-        getgenv().ESPDistance = Value
-        if Value then getgenv().ESPEnabled = true end
-    end
-})
-getgenv().ESPDistance = false
+-- [moved] Visuals ESP toggles removed; use ESP tab
 
 local function NH_setEspColor(name)
     local map = {
@@ -10506,7 +10552,14 @@ task.spawn(function()
                 line.From = Vector2.new(cx+x1, cy+y1)
                 line.To = Vector2.new(cx+x2, cy+y2)
                 line.Thickness = th
-                line.Color = col()
+                local c1 = getgenv().UE_CrosshairColor1 or Color3.fromRGB(255,255,255)
+                local c2 = getgenv().UE_CrosshairColor2 or Color3.fromRGB(120,200,255)
+                if getgenv().UE_CrosshairDual then
+                    -- horizontal (l/r) = color1, vertical (t/b) = color2
+                    if k == 'l' or k == 'r' then line.Color = c1 else line.Color = c2 end
+                else
+                    line.Color = c1
+                end
                 line.Visible = true
             end
         end
@@ -10809,4 +10862,335 @@ task.spawn(function()
     end)
 
     print('[Novhook] ESP Style 2D/3D(HQ)/4D + Skin Custom + UE Visuals ready')
+end)
+
+
+-- ============================================================
+-- Visuals Runtime: Viewmodel Override + Damage Numbers + Cerus Skybox
+-- ============================================================
+task.spawn(function()
+    local Players = game:GetService('Players')
+    local RunService = game:GetService('RunService')
+    local Lighting = game:GetService('Lighting')
+    local Workspace = game:GetService('Workspace')
+    local TweenService = game:GetService('TweenService')
+    local LP = Players.LocalPlayer
+
+    local SKY = {
+        ['Deep Space'] = {
+            SkyboxBk='rbxassetid://159248188', SkyboxDn='rbxassetid://159248183',
+            SkyboxFt='rbxassetid://159248187', SkyboxLf='rbxassetid://159248185',
+            SkyboxRt='rbxassetid://159248186', SkyboxUp='rbxassetid://159248184',
+        },
+        ['SpongeBob'] = {
+            SkyboxBk='rbxassetid://15962101128', SkyboxDn='rbxassetid://15970246218',
+            SkyboxFt='rbxassetid://15962101128', SkyboxLf='rbxassetid://15962101128',
+            SkyboxRt='rbxassetid://15962101128', SkyboxUp='rbxassetid://15962901054',
+        },
+        ['Pink Daylight'] = {
+            SkyboxBk='rbxassetid://271042516', SkyboxDn='rbxassetid://271077243',
+            SkyboxFt='rbxassetid://271042556', SkyboxLf='rbxassetid://271042310',
+            SkyboxRt='rbxassetid://271042467', SkyboxUp='rbxassetid://271077958',
+        },
+        ['Night'] = {
+            SkyboxBk='rbxassetid://12064107', SkyboxDn='rbxassetid://12064152',
+            SkyboxFt='rbxassetid://12064121', SkyboxLf='rbxassetid://12064115',
+            SkyboxRt='rbxassetid://12064124', SkyboxUp='rbxassetid://12064131',
+        },
+        ['Clouds'] = {
+            SkyboxBk='rbxassetid://591058823', SkyboxDn='rbxassetid://591059876',
+            SkyboxFt='rbxassetid://591058104', SkyboxLf='rbxassetid://591057843',
+            SkyboxRt='rbxassetid://591057782', SkyboxUp='rbxassetid://591058833',
+        },
+        ['Nebula'] = {
+            SkyboxBk='rbxassetid://159454299', SkyboxDn='rbxassetid://159454296',
+            SkyboxFt='rbxassetid://159454293', SkyboxLf='rbxassetid://159454286',
+            SkyboxRt='rbxassetid://159454300', SkyboxUp='rbxassetid://159454288',
+        },
+    }
+    getgenv().NH_SkyboxName = getgenv().NH_SkyboxName or 'Deep Space'
+    getgenv().NH_SkyboxEnabled = getgenv().NH_SkyboxEnabled or false
+
+    local function applySky(name)
+        local data = SKY[name]
+        if not data then return end
+        local sky = Lighting:FindFirstChildOfClass('Sky')
+        if not sky then
+            sky = Instance.new('Sky')
+            sky.Parent = Lighting
+        end
+        for k,v in pairs(data) do
+            pcall(function() sky[k] = v end)
+        end
+        if getgenv().NH_SkyRemoveSun then pcall(function() sky.SunAngularSize = 0 end) end
+        if getgenv().NH_SkyRemoveMoon then pcall(function() sky.MoonAngularSize = 0 end) end
+        if getgenv().NH_SkyRemoveStars then pcall(function() sky.StarCount = 0 end) end
+    end
+
+    -- expose for existing Skybox UI if present
+    getgenv().NH_ApplySkybox = applySky
+
+    -- try hook existing dropdown by polling selected name flag
+    task.spawn(function()
+        local last
+        while true do
+            task.wait(0.5)
+            if getgenv().NH_SkyboxEnabled or getgenv().CustomSkyboxEnabled then
+                local name = getgenv().NH_SkyboxName or getgenv().SelectedSkybox or 'Deep Space'
+                if name ~= last then
+                    applySky(name)
+                    last = name
+                end
+            end
+        end
+    end)
+
+    local function matEnum(name)
+        local ok, m = pcall(function() return Enum.Material[name] end)
+        if ok and m then return m end
+        return Enum.Material.Neon
+    end
+
+    local function isArmPart(n)
+        n = string.lower(n or '')
+        return n:find('arm') or n:find('hand') or n:find('glove') or n:find('sleeve') or n:find('finger')
+    end
+
+    local function applyVM()
+        local vm = getgenv().NH_VM
+        if not vm then return end
+        local folder = Workspace:FindFirstChild('ViewModels') or Workspace:FindFirstChild('ViewModel')
+        local targets = {}
+        if folder then
+            for _, c in ipairs(folder:GetDescendants()) do
+                if c:IsA('BasePart') then table.insert(targets, c) end
+            end
+        end
+        -- also camera children
+        local cam = Workspace.CurrentCamera
+        if cam then
+            for _, c in ipairs(cam:GetDescendants()) do
+                if c:IsA('BasePart') then table.insert(targets, c) end
+            end
+        end
+        for _, part in ipairs(targets) do
+            local arm = isArmPart(part.Name) or (part.Parent and isArmPart(part.Parent.Name))
+            if arm then
+                if vm.arm_invisible then
+                    part.LocalTransparencyModifier = 1
+                elseif vm.arm_chams then
+                    part.LocalTransparencyModifier = vm.arm_trans or 0
+                    part.Color = vm.arm_color or part.Color
+                    part.Material = matEnum(vm.arm_mat)
+                    if vm.disable_textures then
+                        for _, d in ipairs(part:GetChildren()) do
+                            if d:IsA('Texture') or d:IsA('Decal') then d.Transparency = 1 end
+                        end
+                    end
+                end
+                if vm.arm_hl then
+                    local hl = part:FindFirstChild('NH_ArmHL')
+                    if not hl then
+                        hl = Instance.new('Highlight')
+                        hl.Name = 'NH_ArmHL'
+                        hl.Parent = part
+                    end
+                    hl.Adornee = part
+                    hl.FillColor = vm.arm_hl_color or Color3.new(1,1,1)
+                    hl.FillTransparency = vm.arm_hl_fill or 0.5
+                    hl.OutlineColor = vm.arm_hl_color or Color3.new(1,1,1)
+                    hl.Enabled = true
+                end
+            else
+                if vm.weapon_chams then
+                    part.Color = vm.weapon_color or part.Color
+                    part.Material = matEnum(vm.weapon_mat)
+                    part.Transparency = vm.weapon_trans or 0
+                    if vm.disable_textures then
+                        for _, d in ipairs(part:GetChildren()) do
+                            if d:IsA('Texture') or d:IsA('Decal') then d.Transparency = 1 end
+                        end
+                    end
+                end
+                if vm.weapon_hl then
+                    local hl = part:FindFirstChild('NH_WepHL')
+                    if not hl then
+                        hl = Instance.new('Highlight')
+                        hl.Name = 'NH_WepHL'
+                        hl.Parent = part
+                    end
+                    hl.Adornee = part
+                    hl.FillColor = vm.weapon_hl_color or Color3.new(1,1,1)
+                    hl.FillTransparency = vm.weapon_hl_fill or 0.5
+                    hl.Enabled = true
+                end
+            end
+            if vm.wireframe then
+                pcall(function() part.Material = Enum.Material.ForceField end)
+            end
+        end
+        if vm.offset_enable and cam then
+            -- soft offset via FOV/cam subject not always possible; try viewmodel model CFrame
+            pcall(function()
+                local fp = folder and (folder:FindFirstChild('FirstPerson') or folder:FindFirstChildWhichIsA('Model'))
+                if fp and fp:IsA('Model') and fp.PrimaryPart then
+                    -- leave actual transform to game; store desired offset for other hooks
+                    getgenv().NH_VM_Offset = Vector3.new(vm.ox or 0, vm.oy or 0, vm.oz or 0)
+                end
+            end)
+        end
+        if vm.body_no_clothes and LP.Character then
+            for _, d in ipairs(LP.Character:GetDescendants()) do
+                if d:IsA('Clothing') or d:IsA('Shirt') or d:IsA('Pants') or d:IsA('ShirtGraphic') then
+                    pcall(function() d:Destroy() end)
+                end
+            end
+        end
+    end
+
+    RunService.RenderStepped:Connect(function()
+        pcall(applyVM)
+    end)
+
+    -- Damage numbers: watch health drops when we attacked
+    local lastHp = {}
+    local function showDmg(worldPos, amount)
+        local cfg = getgenv().NH_DmgNum
+        if not cfg or not cfg.enable then return end
+        local pg = LP:FindFirstChild('PlayerGui') or LP:WaitForChild('PlayerGui', 2)
+        if not pg then return end
+        local gui = pg:FindFirstChild('NH_DmgNums')
+        if not gui then
+            gui = Instance.new('ScreenGui')
+            gui.Name = 'NH_DmgNums'
+            gui.ResetOnSpawn = false
+            gui.IgnoreGuiInset = true
+            gui.Parent = pg
+        end
+        local part = Instance.new('Part')
+        part.Anchored = true
+        part.CanCollide = false
+        part.Transparency = 1
+        part.Size = Vector3.new(0.2,0.2,0.2)
+        part.Position = worldPos + Vector3.new(0, 2, 0)
+        part.Parent = Workspace
+        local bb = Instance.new('BillboardGui')
+        bb.Size = UDim2.new(0, 80, 0, 40)
+        bb.AlwaysOnTop = true
+        bb.Adornee = part
+        bb.Parent = part
+        local lab = Instance.new('TextLabel')
+        lab.BackgroundTransparency = 1
+        lab.Size = UDim2.new(1,0,1,0)
+        lab.Font = Enum.Font.GothamBold
+        lab.TextSize = tonumber(cfg.text_size) or 18
+        lab.TextStrokeTransparency = 0.4
+        lab.Text = tostring(math.floor(amount + 0.5))
+        local t0 = os.clock()
+        local c1 = cfg.color1 or Color3.fromRGB(255,80,80)
+        local c2 = cfg.color2 or Color3.fromRGB(255,210,90)
+        lab.TextColor3 = c1
+        lab.Parent = bb
+        task.spawn(function()
+            local dur = tonumber(cfg.duration) or 0.8
+            local rise = tonumber(cfg.rise) or 42
+            while os.clock() - t0 < dur do
+                local a = (os.clock() - t0) / dur
+                if cfg.color_type == 'Gradient' then
+                    lab.TextColor3 = c1:Lerp(c2, a)
+                end
+                part.Position = worldPos + Vector3.new(0, 2 + rise * a * 0.05, 0)
+                lab.TextTransparency = a * 0.85
+                lab.TextStrokeTransparency = 0.4 + a * 0.6
+                RunService.RenderStepped:Wait()
+            end
+            pcall(function() part:Destroy() end)
+        end)
+    end
+
+    -- hide default damage numbers optionally
+    task.spawn(function()
+        while true do
+            task.wait(0.5)
+            if getgenv().NH_DmgNum and getgenv().NH_DmgNum.remove_ingame then
+                pcall(function()
+                    local pg = LP:FindFirstChild('PlayerGui')
+                    if not pg then return end
+                    for _, g in ipairs(pg:GetDescendants()) do
+                        local n = g.Name:lower()
+                        if g:IsA('TextLabel') and (n:find('damage') or n:find('dmg')) and not g:IsDescendantOf(pg:FindFirstChild('NH_DmgNums')) then
+                            g.Visible = false
+                        end
+                    end
+                end)
+            end
+        end
+    end)
+
+    local function track(plr)
+        if plr == LP then return end
+        local function onChar(char)
+            local hum = char:WaitForChild('Humanoid', 5)
+            if not hum then return end
+            lastHp[plr] = hum.Health
+            hum.HealthChanged:Connect(function(hp)
+                local old = lastHp[plr] or hp
+                local diff = old - hp
+                lastHp[plr] = hp
+                if diff > 0.5 and (tick() - (getgenv()._nhLastAttack or lastAttackTime or 0)) < 1.2 then
+                    local head = char:FindFirstChild('Head') or char:FindFirstChild('HumanoidRootPart')
+                    if head then showDmg(head.Position, diff) end
+                end
+            end)
+        end
+        if plr.Character then onChar(plr.Character) end
+        plr.CharacterAdded:Connect(onChar)
+    end
+    for _, p in ipairs(Players:GetPlayers()) do track(p) end
+    Players.PlayerAdded:Connect(track)
+
+    -- also mark attack time for hitlog compatibility
+    getgenv()._nhLastAttack = 0
+    task.spawn(function()
+        while true do
+            task.wait(0.1)
+            if getgenv().NH_MarkAttack and type(getgenv().NH_MarkAttack) == 'function' then
+                -- leave existing mark
+            end
+            if getgenv().Cerus_ForceFire or getgenv().RagebotEnabled then
+                getgenv()._nhLastAttack = tick()
+            end
+        end
+    end)
+
+    print('[Novhook] Viewmodel Override + Damage Numbers + Skybox runtime ready')
+end)
+
+-- Wire Skybox tab options if SkyboxGroup exists
+pcall(function()
+    if not SkyboxGroup then return end
+    SkyboxGroup:AddToggle('NH_SkyEnable', {
+        Text = 'Custom Skybox (Cerus)',
+        Default = false,
+        Callback = function(v)
+            getgenv().NH_SkyboxEnabled = v and true or false
+            if v and getgenv().NH_ApplySkybox then
+                getgenv().NH_ApplySkybox(getgenv().NH_SkyboxName or 'Deep Space')
+            end
+        end,
+    })
+    SkyboxGroup:AddDropdown('NH_SkySelect', {
+        Text = 'Skybox Preset',
+        Values = { 'Deep Space', 'SpongeBob', 'Pink Daylight', 'Night', 'Clouds', 'Nebula' },
+        Default = 1,
+        Callback = function(v)
+            getgenv().NH_SkyboxName = tostring(v)
+            if getgenv().NH_SkyboxEnabled and getgenv().NH_ApplySkybox then
+                getgenv().NH_ApplySkybox(tostring(v))
+            end
+        end,
+    })
+    SkyboxGroup:AddToggle('NH_SkyNoSun', { Text = 'Remove Sun', Default = false, Callback = function(v) getgenv().NH_SkyRemoveSun = v end })
+    SkyboxGroup:AddToggle('NH_SkyNoMoon', { Text = 'Remove Moon', Default = false, Callback = function(v) getgenv().NH_SkyRemoveMoon = v end })
+    SkyboxGroup:AddToggle('NH_SkyNoStars', { Text = 'Remove Stars', Default = false, Callback = function(v) getgenv().NH_SkyRemoveStars = v end })
 end)
