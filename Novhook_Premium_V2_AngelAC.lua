@@ -1371,6 +1371,7 @@ pcall(function() SaveManager:SetFolder('NovHook') end)
 local Tabs = {
     Legit = Window:AddTab('Legit'),
     Visuals = Window:AddTab('Visuals'),
+    ESP = Window:AddTab('ESP'),
     Cosmetics = Window:AddTab('Skin Changer'),
     Move = Window:AddTab('Move'),
     Farm = Window:AddTab('Farm'),
@@ -1442,6 +1443,189 @@ local WeaponGroup = RagebotGroup
 
 local VisualsGroup = Tabs.Visuals:AddLeftGroupbox('ESP & Map')
 local CustomVisGroup = Tabs.Visuals:AddRightGroupbox('Visual Customization')
+
+-- ===================== UE ESP TAB (full) =====================
+local ESPBoxG = Tabs.ESP:AddLeftGroupbox('ESP Box')
+local ESPSkelG = Tabs.ESP:AddRightGroupbox('ESP Skeleton')
+local ESPNameG = Tabs.ESP:AddLeftGroupbox('ESP Name / Nametag')
+local ESPHPG = Tabs.ESP:AddRightGroupbox('ESP Health')
+local ESPDistG = Tabs.ESP:AddLeftGroupbox('ESP Distance')
+local ESPWepG = Tabs.ESP:AddRightGroupbox('ESP Weapon')
+local ESPChamsG = Tabs.ESP:AddLeftGroupbox('ESP Chams')
+local ESPBodyG = Tabs.ESP:AddRightGroupbox('ESP Body')
+local ESPWorldG = Tabs.ESP:AddLeftGroupbox('World ESP')
+local ESPHLG = Tabs.ESP:AddRightGroupbox('Highlight')
+local ESPTracerG = Tabs.ESP:AddLeftGroupbox('Tracer / FOV')
+local ESPXHairG = Tabs.ESP:AddRightGroupbox('Crosshair')
+local ESPHitG = Tabs.ESP:AddLeftGroupbox('Hit Effects / Sounds')
+local ESPVMG = Tabs.ESP:AddRightGroupbox('Viewmodel / Chams')
+local ESPMiscG = Tabs.ESP:AddLeftGroupbox('Screen FX')
+
+getgenv().ESPEnabled = false
+getgenv().ESPStyle = getgenv().ESPStyle or '3D'
+getgenv().ESPBox = false
+getgenv().ESPBoxMoving = false
+getgenv().ESPBoxRotation = false
+getgenv().ESPSkeleton = false
+getgenv().ESPSkeletonOutline = true
+getgenv().ESPSkeletonThickness = 1.5
+getgenv().NameEnabled = false
+getgenv().ESPNameStatus = false
+getgenv().ESPNameSpoof = false
+getgenv().HealthEnabled = false
+getgenv().ESPHealthLerp = true
+getgenv().ESPHealthMoving = false
+getgenv().ESPDistance = false
+getgenv().ESPWeapon = false
+getgenv().ESPChams = false
+getgenv().ESPChamsFillAlpha = 0.55
+getgenv().ESPChamsOutlineAlpha = 0.1
+getgenv().ESPBody = false
+getgenv().ESPBodyTransparency = 0.35
+getgenv().ESPBodyDisable = false
+getgenv().WorldESP = false
+getgenv().WorldESPName = true
+getgenv().WorldESPDistance = true
+getgenv().ESPHighlight = false
+getgenv().BulletTrajectory = false
+getgenv().FOVChanger = false
+getgenv().FOVChangerValue = 90
+getgenv().UE_Crosshair = false
+getgenv().UE_CrosshairLen = 12
+getgenv().UE_CrosshairThick = 2
+getgenv().UE_CrosshairBounce = false
+getgenv().UE_CrosshairRot = false
+getgenv().UE_CrosshairOutline = true
+getgenv().UE_DisableGameXhair = false
+getgenv().HitEffectsEnabled = false
+getgenv().HitEffectsDisableMarker = false
+getgenv().HitEffectsDisableNumbers = false
+getgenv().HitSoundEnabled = true
+getgenv().HitSoundVolume = 2
+getgenv().VM_Chams = false
+getgenv().VM_Wireframe = false
+getgenv().VM_OffsetX = 0
+getgenv().VM_OffsetY = 0
+getgenv().VM_OffsetZ = 0
+getgenv().VM_Recoil = false
+getgenv().VM_DisableTextures = false
+getgenv().ThirdPerson = false
+getgenv().AntiFlashbang = false
+getgenv().RemoveVignette = false
+getgenv().ScreenBlur = false
+getgenv().ScreenBrightness = 1
+getgenv().ScreenContrast = 0
+getgenv().ScreenSaturation = 0
+getgenv().ESPColor = Color3.fromRGB(255, 60, 60)
+getgenv().ESP3DQuality = true
+
+ESPBoxG:AddToggle('ESPEnabled', { Text = 'ESP Master', Default = false, Callback = function(v) getgenv().ESPEnabled = v and true or false end })
+ESPBoxG:AddDropdown('ESPStyleMode', {
+    Text = 'ESP Style',
+    Values = { '2D', '3D', '4D' },
+    Default = 2,
+    Multi = false,
+    Callback = function(v)
+        getgenv().ESPStyle = tostring(v or '3D')
+        if getgenv().ESPStyle == '2D' then
+            getgenv().ESPBox = true
+            getgenv().ESPChams = false
+            getgenv().ESPHighlight = false
+        elseif getgenv().ESPStyle == '3D' then
+            getgenv().ESPBox = true
+            getgenv().ESPHighlight = true
+            getgenv().ESPChams = true
+            getgenv().NameEnabled = true
+            getgenv().HealthEnabled = true
+            getgenv().ESPDistance = true
+        else
+            getgenv().ESPBox = true
+            getgenv().ESPHighlight = true
+            getgenv().ESPChams = true
+            getgenv().ESPSkeleton = true
+            getgenv().NameEnabled = true
+            getgenv().HealthEnabled = true
+            getgenv().ESPDistance = true
+            getgenv().ESPWeapon = true
+        end
+        getgenv().ESPEnabled = true
+    end,
+})
+ESPBoxG:AddToggle('ESPBox', { Text = 'Box', Default = false, Callback = function(v) getgenv().ESPBox = v getgenv().ESPEnabled = v or getgenv().ESPEnabled end })
+ESPBoxG:AddToggle('ESPBoxMoving', { Text = 'Moving', Default = false, Callback = function(v) getgenv().ESPBoxMoving = v end })
+ESPBoxG:AddToggle('ESPBoxRotation', { Text = 'Rotation', Default = false, Callback = function(v) getgenv().ESPBoxRotation = v end })
+ESPBoxG:AddDropdown('ESPBoxColor', {
+    Text = 'Color', Values = {'Red','Orange','Yellow','Green','Cyan','Blue','Purple','White','Pink'}, Default = 1,
+    Callback = function(v)
+        local map = {Red=Color3.fromRGB(255,60,60),Orange=Color3.fromRGB(255,140,40),Yellow=Color3.fromRGB(255,220,60),Green=Color3.fromRGB(60,255,100),Cyan=Color3.fromRGB(60,220,255),Blue=Color3.fromRGB(60,120,255),Purple=Color3.fromRGB(160,80,255),White=Color3.fromRGB(255,255,255),Pink=Color3.fromRGB(255,80,180)}
+        getgenv().ESPColor = map[tostring(v)] or map.Red
+    end,
+})
+
+ESPSkelG:AddToggle('ESPSkeleton', { Text = 'Skeleton', Default = false, Callback = function(v) getgenv().ESPSkeleton = v getgenv().ESPEnabled = v or getgenv().ESPEnabled end })
+ESPSkelG:AddToggle('ESPSkeletonOutline', { Text = 'Outline', Default = true, Callback = function(v) getgenv().ESPSkeletonOutline = v end })
+ESPSkelG:AddSlider('ESPSkeletonThickness', { Text = 'Thickness', Default = 1.5, Min = 0.5, Max = 5, Rounding = 1, Callback = function(v) getgenv().ESPSkeletonThickness = v end })
+
+ESPNameG:AddToggle('NameEnabled', { Text = 'Name', Default = false, Callback = function(v) getgenv().NameEnabled = v getgenv().ESPEnabled = v or getgenv().ESPEnabled end })
+ESPNameG:AddToggle('ESPNameStatus', { Text = 'Status', Default = false, Callback = function(v) getgenv().ESPNameStatus = v end })
+ESPNameG:AddToggle('ESPNameSpoof', { Text = 'Nametag Spoof', Default = false, Callback = function(v) getgenv().ESPNameSpoof = v end })
+
+ESPHPG:AddToggle('HealthEnabled', { Text = 'Healthbar', Default = false, Callback = function(v) getgenv().HealthEnabled = v getgenv().ESPEnabled = v or getgenv().ESPEnabled end })
+ESPHPG:AddToggle('ESPHealthLerp', { Text = 'Health Lerp', Default = true, Callback = function(v) getgenv().ESPHealthLerp = v end })
+ESPHPG:AddToggle('ESPHealthMoving', { Text = 'Moving Healthbar', Default = false, Callback = function(v) getgenv().ESPHealthMoving = v end })
+
+ESPDistG:AddToggle('ESPDistance', { Text = 'Distance', Default = false, Callback = function(v) getgenv().ESPDistance = v getgenv().ESPEnabled = v or getgenv().ESPEnabled end })
+ESPWepG:AddToggle('ESPWeapon', { Text = 'Weapon', Default = false, Callback = function(v) getgenv().ESPWeapon = v getgenv().ESPEnabled = v or getgenv().ESPEnabled end })
+
+ESPChamsG:AddToggle('ESPChams', { Text = 'Chams', Default = false, Callback = function(v) getgenv().ESPChams = v getgenv().ESPEnabled = v or getgenv().ESPEnabled end })
+ESPChamsG:AddSlider('ESPChamsFillAlpha', { Text = 'Fill Alpha', Default = 0.55, Min = 0, Max = 1, Rounding = 2, Callback = function(v) getgenv().ESPChamsFillAlpha = v end })
+ESPChamsG:AddSlider('ESPChamsOutlineAlpha', { Text = 'Outline Alpha', Default = 0.1, Min = 0, Max = 1, Rounding = 2, Callback = function(v) getgenv().ESPChamsOutlineAlpha = v end })
+
+ESPBodyG:AddToggle('ESPBody', { Text = 'Body ESP', Default = false, Callback = function(v) getgenv().ESPBody = v end })
+ESPBodyG:AddSlider('ESPBodyTransparency', { Text = 'Body Transparency', Default = 0.35, Min = 0, Max = 1, Rounding = 2, Callback = function(v) getgenv().ESPBodyTransparency = v end })
+ESPBodyG:AddToggle('ESPBodyDisable', { Text = 'Disable Body', Default = false, Callback = function(v) getgenv().ESPBodyDisable = v end })
+
+ESPWorldG:AddToggle('WorldESP', { Text = 'World ESP', Default = false, Callback = function(v) getgenv().WorldESP = v end })
+ESPWorldG:AddToggle('WorldESPName', { Text = 'Object Name', Default = true, Callback = function(v) getgenv().WorldESPName = v end })
+ESPWorldG:AddToggle('WorldESPDistance', { Text = 'Object Distance', Default = true, Callback = function(v) getgenv().WorldESPDistance = v end })
+ESPWorldG:AddInput('WorldESPWhitelist', { Text = 'Whitelist filter', Default = '', Placeholder = 'name contains...', Callback = function(v) getgenv().WorldESPWhitelist = tostring(v or '') end })
+
+ESPHLG:AddToggle('ESPHighlight', { Text = 'Highlight', Default = false, Callback = function(v) getgenv().ESPHighlight = v getgenv().ESPEnabled = v or getgenv().ESPEnabled end })
+
+ESPTracerG:AddToggle('BulletTrajectory', { Text = 'Tracer', Default = false, Callback = function(v) getgenv().BulletTrajectory = v end })
+ESPTracerG:AddToggle('FOVChanger', { Text = 'FOV Changer', Default = false, Callback = function(v) getgenv().FOVChanger = v end })
+ESPTracerG:AddSlider('FOVChangerValue', { Text = 'FOV Value', Default = 90, Min = 50, Max = 120, Rounding = 0, Callback = function(v) getgenv().FOVChangerValue = v end })
+
+ESPXHairG:AddToggle('UE_Crosshair', { Text = 'Crosshair', Default = false, Callback = function(v) getgenv().UE_Crosshair = v end })
+ESPXHairG:AddSlider('UE_CrosshairLen', { Text = 'Length', Default = 12, Min = 2, Max = 40, Rounding = 0, Callback = function(v) getgenv().UE_CrosshairLen = v end })
+ESPXHairG:AddSlider('UE_CrosshairThick', { Text = 'Thickness', Default = 2, Min = 1, Max = 8, Rounding = 0, Callback = function(v) getgenv().UE_CrosshairThick = v end })
+ESPXHairG:AddToggle('UE_CrosshairBounce', { Text = 'Bounce', Default = false, Callback = function(v) getgenv().UE_CrosshairBounce = v end })
+ESPXHairG:AddToggle('UE_CrosshairRot', { Text = 'Rotation', Default = false, Callback = function(v) getgenv().UE_CrosshairRot = v end })
+ESPXHairG:AddToggle('UE_CrosshairOutline', { Text = 'Outline', Default = true, Callback = function(v) getgenv().UE_CrosshairOutline = v end })
+ESPXHairG:AddToggle('UE_DisableGameXhair', { Text = 'Disable Game Crosshair', Default = false, Callback = function(v) getgenv().UE_DisableGameXhair = v end })
+
+ESPHitG:AddToggle('HitEffectsEnabled', { Text = 'Hit Effects', Default = false, Callback = function(v) getgenv().HitEffectsEnabled = v end })
+ESPHitG:AddToggle('HitEffectsDisableMarker', { Text = 'Disable Hit Marker', Default = false, Callback = function(v) getgenv().HitEffectsDisableMarker = v end })
+ESPHitG:AddToggle('HitEffectsDisableNumbers', { Text = 'Disable Damage Numbers', Default = false, Callback = function(v) getgenv().HitEffectsDisableNumbers = v end })
+ESPHitG:AddToggle('HitSoundEnabled', { Text = 'Hit Sounds', Default = true, Callback = function(v) getgenv().HitSoundEnabled = v end })
+ESPHitG:AddSlider('HitSoundVolume', { Text = 'Sound Volume', Default = 2, Min = 0, Max = 10, Rounding = 1, Callback = function(v) getgenv().HitSoundVolume = v getgenv().NH_SoundVol = v end })
+
+ESPVMG:AddToggle('VM_Chams', { Text = 'Viewmodel Chams', Default = false, Callback = function(v) getgenv().VM_Chams = v end })
+ESPVMG:AddToggle('VM_Wireframe', { Text = 'Wireframe', Default = false, Callback = function(v) getgenv().VM_Wireframe = v end })
+ESPVMG:AddSlider('VM_OffsetX', { Text = 'Offset X', Default = 0, Min = -5, Max = 5, Rounding = 2, Callback = function(v) getgenv().VM_OffsetX = v end })
+ESPVMG:AddSlider('VM_OffsetY', { Text = 'Offset Y', Default = 0, Min = -5, Max = 5, Rounding = 2, Callback = function(v) getgenv().VM_OffsetY = v end })
+ESPVMG:AddSlider('VM_OffsetZ', { Text = 'Offset Z', Default = 0, Min = -5, Max = 5, Rounding = 2, Callback = function(v) getgenv().VM_OffsetZ = v end })
+ESPVMG:AddToggle('VM_Recoil', { Text = 'Recoil', Default = false, Callback = function(v) getgenv().VM_Recoil = v end })
+ESPVMG:AddToggle('VM_DisableTextures', { Text = 'Disable Textures', Default = false, Callback = function(v) getgenv().VM_DisableTextures = v end })
+ESPVMG:AddToggle('ThirdPerson', { Text = 'Third Person', Default = false, Callback = function(v) getgenv().ThirdPerson = v end })
+
+ESPMiscG:AddToggle('AntiFlashbang', { Text = 'Anti Flashbang', Default = false, Callback = function(v) getgenv().AntiFlashbang = v end })
+ESPMiscG:AddToggle('RemoveVignette', { Text = 'Remove Vignette', Default = false, Callback = function(v) getgenv().RemoveVignette = v end })
+ESPMiscG:AddToggle('ScreenBlur', { Text = 'Blur', Default = false, Callback = function(v) getgenv().ScreenBlur = v end })
+ESPMiscG:AddSlider('ScreenBrightness', { Text = 'Brightness', Default = 1, Min = 0, Max = 5, Rounding = 2, Callback = function(v) getgenv().ScreenBrightness = v end })
+ESPMiscG:AddSlider('ScreenContrast', { Text = 'Contrast', Default = 0, Min = -1, Max = 1, Rounding = 2, Callback = function(v) getgenv().ScreenContrast = v end })
+ESPMiscG:AddSlider('ScreenSaturation', { Text = 'Saturation', Default = 0, Min = -1, Max = 1, Rounding = 2, Callback = function(v) getgenv().ScreenSaturation = v end })
+
 local MoveGroup = Tabs.Move:AddLeftGroupbox('Movement')
 local DeviceGroup = Tabs.Move:AddRightGroupbox('Device Spoofer')
 DeviceGroup:AddToggle('DeviceSpoofToggle', {
@@ -1595,6 +1779,105 @@ local SkyboxGroup = Tabs.Skybox:AddLeftGroupbox('Skybox Options')
 -- Cosmic Changer: 메인 메뉴 버튼 → 전용 UI 오픈 (스킨은 UI 안에서만 변경)
 -- =====================================================================
 local CosmeticsGroup = Tabs.Cosmetics:AddLeftGroupbox('Cosmic Changer')
+local CustomSkinGroup = Tabs.Cosmetics:AddRightGroupbox('Custom Skin')
+local SkinToolsGroup = Tabs.Cosmetics:AddLeftGroupbox('Skin Tools')
+
+getgenv().NH_CustomSkin = getgenv().NH_CustomSkin or {
+    weapon = 'Assault Rifle', baseSkin = '', assetId = '', textureId = '', skinName = 'CustomSkin',
+}
+CustomSkinGroup:AddInput('CS_SkinName', {
+    Text = 'Skin Name', Default = 'CustomSkin', Placeholder = 'name',
+    Callback = function(v) getgenv().NH_CustomSkin.skinName = tostring(v or 'CustomSkin') end,
+})
+CustomSkinGroup:AddInput('CS_BaseSkin', {
+    Text = 'Base Skin (optional)', Default = '', Placeholder = 'base skin',
+    Callback = function(v) getgenv().NH_CustomSkin.baseSkin = tostring(v or '') end,
+})
+CustomSkinGroup:AddInput('CS_Weapon', {
+    Text = 'Weapon / Base', Default = 'Assault Rifle', Placeholder = 'weapon',
+    Callback = function(v) getgenv().NH_CustomSkin.weapon = tostring(v or 'Assault Rifle') end,
+})
+CustomSkinGroup:AddInput('CS_AssetId', {
+    Text = 'Asset Id', Default = '', Placeholder = 'rbxassetid',
+    Callback = function(v) getgenv().NH_CustomSkin.assetId = tostring(v or ''):gsub('%D','') end,
+})
+CustomSkinGroup:AddInput('CS_TextureId', {
+    Text = 'Texture Id', Default = '', Placeholder = 'texture id',
+    Callback = function(v) getgenv().NH_CustomSkin.textureId = tostring(v or ''):gsub('%D','') end,
+})
+CustomSkinGroup:AddButton('Apply Custom Skin', function()
+    pcall(function()
+        local cs = getgenv().NH_CustomSkin or {}
+        local weapon = tostring(cs.weapon or 'Assault Rifle')
+        local name = tostring(cs.skinName or 'CustomSkin')
+        local asset = tostring(cs.assetId or '')
+        local tex = tostring(cs.textureId or '')
+        local base = tostring(cs.baseSkin or '')
+        if asset == '' and base == '' then
+            warn('[Novhook] need Asset Id or Base Skin')
+            return
+        end
+        local data = {
+            Name = name, Type = 'Skin', ItemName = weapon,
+            AssetId = asset ~= '' and tonumber(asset) or nil,
+            TextureId = tex ~= '' and tonumber(tex) or nil,
+            BaseSkin = base ~= '' and base or nil, Custom = true,
+        }
+        if CosmeticLibrary and CosmeticLibrary.Cosmetics then
+            if base ~= '' and CosmeticLibrary.Cosmetics[base] then
+                local srcSkin = CosmeticLibrary.Cosmetics[base]
+                for k,v in pairs(srcSkin) do
+                    if data[k] == nil then data[k] = v end
+                end
+                data.Name = name
+                data.Custom = true
+                data.ItemName = weapon
+                if asset ~= '' then data.AssetId = tonumber(asset) end
+                if tex ~= '' then data.TextureId = tonumber(tex) end
+            end
+            CosmeticLibrary.Cosmetics[name] = data
+        end
+        equipped = equipped or {}
+        equipped[weapon] = equipped[weapon] or {}
+        equipped[weapon].Skin = data
+        equipped[weapon].WeaponSkin = data
+        if type(NH_ApplyEquippedToHeld) == 'function' then NH_ApplyEquippedToHeld() end
+        task.defer(function()
+            pcall(function()
+                if type(NH_ApplyEquippedToHeld) == 'function' then NH_ApplyEquippedToHeld() end
+            end)
+        end)
+        if type(saveConfig) == 'function' then pcall(saveConfig) end
+        print('[Novhook] Custom Skin applied', name, weapon)
+    end)
+end)
+CustomSkinGroup:AddButton('Delete Custom Skin', function()
+    pcall(function()
+        local cs = getgenv().NH_CustomSkin or {}
+        local name = tostring(cs.skinName or '')
+        local weapon = tostring(cs.weapon or '')
+        if CosmeticLibrary and CosmeticLibrary.Cosmetics and name ~= '' then
+            CosmeticLibrary.Cosmetics[name] = nil
+        end
+        if equipped and weapon ~= '' and equipped[weapon] then
+            equipped[weapon].Skin = nil
+            equipped[weapon].WeaponSkin = nil
+        end
+        print('[Novhook] Custom Skin deleted', name)
+    end)
+end)
+SkinToolsGroup:AddInput('SkinSearchFilter', {
+    Text = 'Search / Cosmetic Filter', Default = '', Placeholder = 'filter...',
+    Callback = function(v) getgenv().NH_SkinSearch = tostring(v or ''):lower() end,
+})
+getgenv().NH_SkinSearch = ''
+SkinToolsGroup:AddLabel('Skin Changer: name / base / delete / search')
+SkinToolsGroup:AddButton('Refresh Skin List', function()
+    pcall(function()
+        if type(NH_RefreshCosUI) == 'function' then NH_RefreshCosUI() end
+    end)
+end)
+
 
 getgenv().NH_UnlockAllCosmetics = getgenv().NH_UnlockAllCosmetics or false
 getgenv().NH_CosWeapon = getgenv().NH_CosWeapon or nil
@@ -6267,12 +6550,23 @@ RunService.RenderStepped:Connect(function()
             bag.box.BorderColor3 = col
         end
         if bag.hl then
-            local showHl = skelOn or boxOn
+            local showHl = skelOn or boxOn or getgenv().ESPChams == true or getgenv().ESPHighlight == true or getgenv().ESPStyle == '3D' or getgenv().ESPStyle == '4D'
             bag.hl.Enabled = showHl
             if showHl then
                 bag.hl.OutlineColor = col
                 bag.hl.FillColor = col
-                bag.hl.FillTransparency = skelOn and 0.7 or 0.85
+                local fillA = tonumber(getgenv().ESPChamsFillAlpha) or 0.55
+                local outA = tonumber(getgenv().ESPChamsOutlineAlpha) or 0.1
+                -- 3D high quality softer fill
+                if getgenv().ESPStyle == '3D' then
+                    fillA = math.clamp(fillA, 0.45, 0.75)
+                    outA = math.clamp(outA, 0.05, 0.25)
+                    bag.hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                elseif getgenv().ESPStyle == '4D' then
+                    bag.hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                end
+                bag.hl.FillTransparency = fillA
+                bag.hl.OutlineTransparency = outA
             end
         end
         if bag.bb then
@@ -10047,4 +10341,472 @@ pcall(function()
     if Library and Library.Notify then
         -- Angel Wings V4 initialized; notification intentionally omitted.
     end
+end)
+
+
+-- ============================================================
+-- Novhook UE Runtime: Style 2D/3D/4D + HQ 3D + Crosshair + WorldESP + FX
+-- ============================================================
+task.spawn(function()
+    local Players = game:GetService('Players')
+    local RunService = game:GetService('RunService')
+    local Workspace = game:GetService('Workspace')
+    local Lighting = game:GetService('Lighting')
+    local LP = Players.LocalPlayer
+    local Cam = Workspace.CurrentCamera
+    local hasDrawing = typeof(Drawing) == 'table' or type(Drawing) == 'table'
+    local drawBags, worldBags, xhair = {}, {}, {}
+    local hq3d = {} -- [plr] = {parts folder}
+
+    local function col()
+        return getgenv().ESPColor or Color3.fromRGB(255, 60, 60)
+    end
+    local function style()
+        return tostring(getgenv().ESPStyle or '3D')
+    end
+    local function w2s(v3)
+        local v, on = Cam:WorldToViewportPoint(v3)
+        return Vector2.new(v.X, v.Y), on, v.Z
+    end
+
+    local BONES = {
+        {'Head','UpperTorso'},{'UpperTorso','LowerTorso'},
+        {'UpperTorso','LeftUpperArm'},{'LeftUpperArm','LeftLowerArm'},{'LeftLowerArm','LeftHand'},
+        {'UpperTorso','RightUpperArm'},{'RightUpperArm','RightLowerArm'},{'RightLowerArm','RightHand'},
+        {'LowerTorso','LeftUpperLeg'},{'LeftUpperLeg','LeftLowerLeg'},{'LeftLowerLeg','LeftFoot'},
+        {'LowerTorso','RightUpperLeg'},{'RightUpperLeg','RightLowerLeg'},{'RightLowerLeg','RightFoot'},
+        {'Head','Torso'},{'Torso','Left Arm'},{'Torso','Right Arm'},{'Torso','Left Leg'},{'Torso','Right Leg'},
+    }
+
+    local function clearDraw(plr)
+        local bag = drawBags[plr]
+        if not bag then return end
+        for _, o in pairs(bag) do
+            if type(o) == 'table' then
+                for _, x in pairs(o) do pcall(function() if x and x.Remove then x:Remove() end end) end
+            else
+                pcall(function() if o and o.Remove then o:Remove() end end)
+            end
+        end
+        drawBags[plr] = nil
+    end
+
+    local function clearHQ(plr)
+        local f = hq3d[plr]
+        if f then pcall(function() f:Destroy() end) hq3d[plr] = nil end
+    end
+
+    local function ensureDraw(plr)
+        if not hasDrawing then return nil end
+        if drawBags[plr] then return drawBags[plr] end
+        local bag = { box = {}, lines = {} }
+        for i = 1, 4 do
+            local l = Drawing.new('Line')
+            l.Visible = false
+            l.Thickness = 1.6
+            l.Color = col()
+            bag.box[i] = l
+        end
+        for i = 1, #BONES do
+            local l = Drawing.new('Line')
+            l.Visible = false
+            l.Thickness = 1.5
+            l.Color = col()
+            bag.lines[i] = l
+        end
+        for _, name in ipairs({'name','dist','wep'}) do
+            local t = Drawing.new('Text')
+            t.Visible = false
+            t.Size = name == 'name' and 15 or 12
+            t.Center = true
+            t.Outline = true
+            t.Color = col()
+            bag[name] = t
+        end
+        drawBags[plr] = bag
+        return bag
+    end
+
+    -- High quality 3D: Adornee box frame + soft outline using SelectionBox on character bounds
+    local function ensureHQ3D(plr, char)
+        local folder = hq3d[plr]
+        if folder and folder.Parent then return folder end
+        clearHQ(plr)
+        folder = Instance.new('Folder')
+        folder.Name = 'NH_HQ3D_' .. plr.UserId
+        folder.Parent = char
+        local root = char:FindFirstChild('HumanoidRootPart')
+        if root then
+            local sb = Instance.new('SelectionBox')
+            sb.Name = 'NH_3DBox'
+            sb.Adornee = char
+            sb.LineThickness = 0.03
+            sb.Color3 = col()
+            sb.SurfaceColor3 = col()
+            sb.SurfaceTransparency = 0.85
+            sb.Transparency = 0.15
+            sb.Parent = folder
+        end
+        -- soft body chams via Highlight already in main ESP; add secondary rim
+        local hl = Instance.new('Highlight')
+        hl.Name = 'NH_3DRim'
+        hl.Adornee = char
+        hl.FillTransparency = 0.82
+        hl.OutlineTransparency = 0.05
+        hl.FillColor = col()
+        hl.OutlineColor = Color3.fromRGB(255, 255, 255):Lerp(col(), 0.35)
+        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        hl.Parent = folder
+        hq3d[plr] = folder
+        return folder
+    end
+
+    local function getWeaponName(plr)
+        local char = plr.Character
+        if not char then return '' end
+        local tool = char:FindFirstChildOfClass('Tool')
+        if tool then return tool.Name end
+        return ''
+    end
+
+    local function ensureXhair()
+        if not hasDrawing or xhair.l then return end
+        for _, n in ipairs({'l','r','t','b'}) do
+            local line = Drawing.new('Line')
+            line.Visible = false
+            line.Thickness = 2
+            line.Color = Color3.fromRGB(255,255,255)
+            xhair[n] = line
+        end
+    end
+
+    local function updateXhair()
+        if not hasDrawing then return end
+        if getgenv().UE_Crosshair ~= true then
+            for _, o in pairs(xhair) do if o then o.Visible = false end end
+            return
+        end
+        ensureXhair()
+        local vp = Cam.ViewportSize
+        local cx, cy = vp.X/2, vp.Y/2
+        local len = tonumber(getgenv().UE_CrosshairLen) or 12
+        local th = tonumber(getgenv().UE_CrosshairThick) or 2
+        local gap = 4
+        if getgenv().UE_CrosshairBounce then len = len + math.sin(os.clock()*8)*2 end
+        local rot = getgenv().UE_CrosshairRot and (os.clock()*90) or 0
+        local function ro(x,y)
+            local r = math.rad(rot)
+            return x*math.cos(r)-y*math.sin(r), x*math.sin(r)+y*math.cos(r)
+        end
+        local segs = { l={-gap-len,0,-gap,0}, r={gap,0,gap+len,0}, t={0,-gap-len,0,-gap}, b={0,gap,0,gap+len} }
+        for k,v in pairs(segs) do
+            local x1,y1 = ro(v[1],v[2]); local x2,y2 = ro(v[3],v[4])
+            local line = xhair[k]
+            if line then
+                line.From = Vector2.new(cx+x1, cy+y1)
+                line.To = Vector2.new(cx+x2, cy+y2)
+                line.Thickness = th
+                line.Color = col()
+                line.Visible = true
+            end
+        end
+        if getgenv().UE_DisableGameXhair then
+            pcall(function()
+                local pg = LP:FindFirstChild('PlayerGui')
+                if not pg then return end
+                for _, g in ipairs(pg:GetDescendants()) do
+                    local n = g.Name:lower()
+                    if (n:find('crosshair') or n:find('reticle')) and g:IsA('GuiObject') then g.Visible = false end
+                end
+            end)
+        end
+    end
+
+    local function clearWorld()
+        for inst, bag in pairs(worldBags) do
+            pcall(function() if bag.bb then bag.bb:Destroy() end end)
+            worldBags[inst] = nil
+        end
+    end
+
+    local function updateWorldESP()
+        if getgenv().WorldESP ~= true then clearWorld() return end
+        local filter = tostring(getgenv().WorldESPWhitelist or ''):lower()
+        local myRoot = LP.Character and LP.Character:FindFirstChild('HumanoidRootPart')
+        local seen, count = {}, 0
+        local folders = {}
+        for _, name in ipairs({'Interactables','Drops','Pickups','Items','Loot'}) do
+            local f = Workspace:FindFirstChild(name)
+            if f then table.insert(folders, f) end
+        end
+        if #folders == 0 then table.insert(folders, Workspace) end
+        for _, folder in ipairs(folders) do
+            for _, obj in ipairs(folder:GetDescendants()) do
+                if count > 70 then break end
+                if obj:IsA('BasePart') or obj:IsA('Model') then
+                    local n = obj.Name
+                    local nl = n:lower()
+                    if filter ~= '' and not nl:find(filter, 1, true) then continue end
+                    if nl == 'part' or nl:find('terrain') or nl:find('baseplate') then continue end
+                    local skip = false
+                    for _, pl in ipairs(Players:GetPlayers()) do
+                        if pl.Character and obj:IsDescendantOf(pl.Character) then skip = true break end
+                    end
+                    if skip then continue end
+                    local part = obj:IsA('BasePart') and obj or obj:FindFirstChildWhichIsA('BasePart')
+                    if not part then continue end
+                    if myRoot and (part.Position - myRoot.Position).Magnitude > 380 then continue end
+                    seen[obj] = true
+                    count = count + 1
+                    local bag = worldBags[obj]
+                    if not bag then
+                        local bb = Instance.new('BillboardGui')
+                        bb.Name = 'NH_WorldESP'
+                        bb.AlwaysOnTop = true
+                        bb.Size = UDim2.new(0, 140, 0, 36)
+                        bb.StudsOffset = Vector3.new(0, 2, 0)
+                        bb.Adornee = part
+                        bb.Parent = part
+                        local lab = Instance.new('TextLabel')
+                        lab.BackgroundTransparency = 1
+                        lab.Size = UDim2.new(1,0,1,0)
+                        lab.Font = Enum.Font.Gotham
+                        lab.TextSize = 12
+                        lab.TextColor3 = Color3.fromRGB(180,255,200)
+                        lab.TextStrokeTransparency = 0.4
+                        lab.Parent = bb
+                        bag = { bb = bb, lab = lab }
+                        worldBags[obj] = bag
+                    end
+                    local text = ''
+                    if getgenv().WorldESPName ~= false then text = n end
+                    if getgenv().WorldESPDistance ~= false and myRoot then
+                        text = text .. (text ~= '' and '\n' or '') .. math.floor((part.Position - myRoot.Position).Magnitude) .. 'm'
+                    end
+                    bag.lab.Text = text
+                    bag.bb.Enabled = text ~= ''
+                end
+            end
+        end
+        for inst, bag in pairs(worldBags) do
+            if not seen[inst] then
+                pcall(function() bag.bb:Destroy() end)
+                worldBags[inst] = nil
+            end
+        end
+    end
+
+    local function updatePlayer(plr)
+        local st = style()
+        local char = plr.Character
+        local hum = char and char:FindFirstChildOfClass('Humanoid')
+        local root = char and char:FindFirstChild('HumanoidRootPart')
+        if not char or not hum or not root or hum.Health <= 0 or getgenv().ESPEnabled ~= true then
+            clearDraw(plr)
+            clearHQ(plr)
+            return
+        end
+        local c = col()
+
+        -- HQ 3D layer
+        if st == '3D' or st == '4D' then
+            local folder = ensureHQ3D(plr, char)
+            if folder then
+                local sb = folder:FindFirstChild('NH_3DBox')
+                local rim = folder:FindFirstChild('NH_3DRim')
+                if sb then
+                    sb.Color3 = c
+                    sb.SurfaceColor3 = c
+                    sb.Visible = getgenv().ESPBox == true or st == '3D' or st == '4D'
+                end
+                if rim then
+                    rim.FillColor = c
+                    rim.OutlineColor = Color3.fromRGB(255,255,255):Lerp(c, 0.4)
+                    rim.FillTransparency = tonumber(getgenv().ESPChamsFillAlpha) or 0.55
+                    rim.OutlineTransparency = tonumber(getgenv().ESPChamsOutlineAlpha) or 0.1
+                    rim.Enabled = getgenv().ESPChams == true or getgenv().ESPHighlight == true or st == '3D' or st == '4D'
+                end
+            end
+        else
+            clearHQ(plr)
+        end
+
+        -- Drawing 2D / 4D
+        if not hasDrawing then return end
+        if st ~= '2D' and st ~= '4D' and getgenv().ESPSkeleton ~= true then
+            clearDraw(plr)
+            return
+        end
+        local bag = ensureDraw(plr)
+        if not bag then return end
+        local head = char:FindFirstChild('Head') or root
+        local top, on1, z1 = w2s(head.Position + Vector3.new(0, 0.7, 0))
+        local bot, on2, z2 = w2s(root.Position - Vector3.new(0, 3.1, 0))
+        local showBox = (getgenv().ESPBox == true or st == '2D' or st == '4D') and on1 and on2 and z1 > 0
+        if showBox and (st == '2D' or st == '4D') then
+            local h = math.abs(bot.Y - top.Y)
+            local w = h * 0.55
+            local cx = (top.X + bot.X) / 2
+            local y1, y2 = math.min(top.Y, bot.Y), math.max(top.Y, bot.Y)
+            local x1, x2 = cx - w/2, cx + w/2
+            if getgenv().ESPBoxMoving then
+                local off = math.sin(os.clock()*6 + plr.UserId%7)*3
+                x1, x2 = x1+off, x2+off
+            end
+            if getgenv().ESPBoxRotation then
+                local sh = math.sin(os.clock()*3)*4
+                x1, x2 = x1+sh, x2-sh
+            end
+            local corners = {
+                {Vector2.new(x1,y1), Vector2.new(x2,y1)},
+                {Vector2.new(x2,y1), Vector2.new(x2,y2)},
+                {Vector2.new(x2,y2), Vector2.new(x1,y2)},
+                {Vector2.new(x1,y2), Vector2.new(x1,y1)},
+            }
+            for i=1,4 do
+                local line = bag.box[i]
+                line.From, line.To = corners[i][1], corners[i][2]
+                line.Color = c
+                line.Thickness = 1.7
+                line.Visible = true
+            end
+        else
+            for i=1,4 do bag.box[i].Visible = false end
+        end
+
+        local useSkel = (st == '4D') or (getgenv().ESPSkeleton == true)
+        if useSkel then
+            local thick = tonumber(getgenv().ESPSkeletonThickness) or 1.5
+            for i, pair in ipairs(BONES) do
+                local a = char:FindFirstChild(pair[1])
+                local b = char:FindFirstChild(pair[2])
+                local line = bag.lines[i]
+                if a and b and a:IsA('BasePart') and b:IsA('BasePart') then
+                    local p1,o1,d1 = w2s(a.Position)
+                    local p2,o2,d2 = w2s(b.Position)
+                    if o1 and o2 and d1>0 and d2>0 then
+                        line.From, line.To = p1, p2
+                        line.Color = c
+                        line.Thickness = thick
+                        line.Visible = true
+                    else
+                        line.Visible = false
+                    end
+                else
+                    line.Visible = false
+                end
+            end
+        else
+            for _, line in ipairs(bag.lines) do line.Visible = false end
+        end
+
+        local myRoot = LP.Character and LP.Character:FindFirstChild('HumanoidRootPart')
+        local screen, onS, zd = w2s(head.Position + Vector3.new(0, 2.3, 0))
+        if onS and zd > 0 then
+            local nameStr = plr.Name
+            if getgenv().ESPNameSpoof then nameStr = 'Player' end
+            if getgenv().ESPNameStatus then nameStr = nameStr .. ' [' .. math.floor(hum.Health) .. 'hp]' end
+            bag.name.Text = nameStr
+            bag.name.Position = screen
+            bag.name.Color = c
+            bag.name.Visible = getgenv().NameEnabled == true or st == '4D' or st == '3D'
+            local distStr = myRoot and string.format('%dm', math.floor((root.Position-myRoot.Position).Magnitude)) or ''
+            bag.dist.Text = distStr
+            bag.dist.Position = screen + Vector2.new(0, 14)
+            bag.dist.Visible = (getgenv().ESPDistance == true or st == '4D' or st == '3D') and distStr ~= ''
+            local wep = getWeaponName(plr)
+            bag.wep.Text = wep
+            bag.wep.Position = screen + Vector2.new(0, 28)
+            bag.wep.Visible = (getgenv().ESPWeapon == true or st == '4D') and wep ~= ''
+        else
+            bag.name.Visible = false
+            bag.dist.Visible = false
+            bag.wep.Visible = false
+        end
+    end
+
+    -- Screen FX / FOV / third person
+    local cc, blur
+    local function ensureCC()
+        if not cc or not cc.Parent then
+            cc = Instance.new('ColorCorrectionEffect')
+            cc.Name = 'NH_UE_ScreenCC'
+            cc.Parent = Lighting
+        end
+        return cc
+    end
+    local function ensureBlur()
+        if not blur or not blur.Parent then
+            blur = Instance.new('BlurEffect')
+            blur.Name = 'NH_UE_ScreenBlur'
+            blur.Size = 8
+            blur.Parent = Lighting
+        end
+        return blur
+    end
+
+    local lastWorld = 0
+    RunService.RenderStepped:Connect(function()
+        pcall(updateXhair)
+        pcall(function()
+            if getgenv().FOVChanger and Cam then
+                Cam.FieldOfView = tonumber(getgenv().FOVChangerValue) or 90
+            end
+            if getgenv().ThirdPerson and LP.Character then
+                local hum = LP.Character:FindFirstChildOfClass('Humanoid')
+                if hum then hum.CameraOffset = Vector3.new(0, 1.5, 6) end
+            elseif LP.Character then
+                local hum = LP.Character:FindFirstChildOfClass('Humanoid')
+                if hum and not getgenv().ThirdPerson and hum.CameraOffset.Magnitude > 0.1 then
+                    hum.CameraOffset = Vector3.zero
+                end
+            end
+            local cfx = ensureCC()
+            cfx.Brightness = (tonumber(getgenv().ScreenBrightness) or 1) - 1
+            cfx.Contrast = tonumber(getgenv().ScreenContrast) or 0
+            cfx.Saturation = tonumber(getgenv().ScreenSaturation) or 0
+            local bfx = ensureBlur()
+            bfx.Enabled = getgenv().ScreenBlur == true
+            if getgenv().AntiFlashbang then
+                for _, fx in ipairs(Lighting:GetChildren()) do
+                    if fx:IsA('ColorCorrectionEffect') and fx.Name:lower():find('flash') then fx.Enabled = false end
+                    if fx:IsA('BlurEffect') and fx.Name ~= 'NH_UE_ScreenBlur' and fx.Size > 12 then fx.Size = 0 end
+                end
+            end
+            if getgenv().RemoveVignette then
+                local pg = LP:FindFirstChild('PlayerGui')
+                if pg then
+                    for _, g in ipairs(pg:GetDescendants()) do
+                        if g:IsA('ImageLabel') and (g.Name:lower():find('vignette') or g.Name:lower():find('hurt')) then
+                            g.Visible = false
+                        end
+                    end
+                end
+            end
+        end)
+
+        local seen = {}
+        if getgenv().ESPEnabled == true then
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= LP then
+                    seen[plr] = true
+                    pcall(updatePlayer, plr)
+                end
+            end
+        end
+        for plr in pairs(drawBags) do if not seen[plr] then clearDraw(plr) end end
+        for plr in pairs(hq3d) do if not seen[plr] then clearHQ(plr) end end
+
+        if os.clock() - lastWorld > 0.45 then
+            lastWorld = os.clock()
+            pcall(updateWorldESP)
+        end
+    end)
+
+    Players.PlayerRemoving:Connect(function(p)
+        clearDraw(p)
+        clearHQ(p)
+    end)
+
+    print('[Novhook] ESP Style 2D/3D(HQ)/4D + Skin Custom + UE Visuals ready')
 end)
