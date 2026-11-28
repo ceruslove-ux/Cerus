@@ -1628,7 +1628,7 @@ getgenv().ESP3DQuality = true
 ESPBoxG:AddToggle('ESPEnabled', { Text = 'ESP Master', Default = false, Callback = function(v) getgenv().ESPEnabled = v and true or false end })
 ESPBoxG:AddDropdown('ESPStyleMode', {
     Text = 'ESP Style',
-    Values = { '2D', '3D', '4D', '5D' },
+    Values = { '2D', '3D', '4D', '5D' }, -- 5D = ultra HQ multi-layer
     Default = 2,
     Multi = false,
     Callback = function(v)
@@ -11568,3 +11568,526 @@ task.spawn(function()
 
     print('[Novhook] DmgNum FIX + BulletTracer dual + ESP 5D + Pierce ON')
 end)
+
+
+
+-- ============================================================
+-- FINAL PATCH: Damage Numbers WORK + ESP 5D HQ + Bullet Tracer
+-- dual color / curve / through walls + Antirage (Legit)
+-- ============================================================
+task.spawn(function()
+    local Players = game:GetService('Players')
+    local RunService = game:GetService('RunService')
+    local Workspace = game:GetService('Workspace')
+    local UIS = game:GetService('UserInputService')
+    local CoreGui = game:GetService('CoreGui')
+    local TweenService = game:GetService('TweenService')
+    local LP = Players.LocalPlayer
+    local Cam = Workspace.CurrentCamera
+
+    local function safeParent()
+        local ok, h = pcall(function() return gethui and gethui() end)
+        if ok and h then return h end
+        local pg = LP:FindFirstChildOfClass('PlayerGui') or LP:WaitForChild('PlayerGui', 2)
+        if pg then return pg end
+        return CoreGui
+    end
+
+    -- ========== DAMAGE NUMBERS (always works when enable) ==========
+    getgenv().NH_DmgNum = getgenv().NH_DmgNum or {
+        enable = false,
+        remove_ingame = false,
+        color_type = 'Solid',
+        color1 = Color3.fromRGB(255, 80, 80),
+        color2 = Color3.fromRGB(255, 220, 40),
+        text_size = 22,
+        duration = 1.0,
+        rise = 48,
+    }
+
+    local dmgGui
+    local function ensureDmgGui()
+        if dmgGui and dmgGui.Parent then return dmgGui end
+        local p = safeParent()
+        local old = p:FindFirstChild('NH_DmgNums_Final')
+        if old then old:Destroy() end
+        dmgGui = Instance.new('ScreenGui')
+        dmgGui.Name = 'NH_DmgNums_Final'
+        dmgGui.ResetOnSpawn = false
+        dmgGui.IgnoreGuiInset = true
+        dmgGui.DisplayOrder = 10050
+        dmgGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        pcall(function() dmgGui.Parent = p end)
+        if not dmgGui.Parent then pcall(function() dmgGui.Parent = CoreGui end) end
+        if not dmgGui.Parent and LP:FindFirstChild('PlayerGui') then
+            dmgGui.Parent = LP.PlayerGui
+        end
+        return dmgGui
+    end
+
+    getgenv().NH_ShowDamageNumber = function(worldPos, amount, headshot)
+        local cfg = getgenv().NH_DmgNum
+        if not cfg or cfg.enable ~= true then return end
+        amount = math.floor((tonumber(amount) or 0) + 0.5)
+        if amount < 1 then return end
+        local gui = ensureDmgGui()
+        if not gui then return end
+
+        -- world -> screen
+        local ok, v = pcall(function() return Cam:WorldToViewportPoint(worldPos + Vector3.new(0, 1.6, 0)) end)
+        if not ok or not v or v.Z <= 0 then return end
+        local sx, sy = v.X, v.Y
+        sx = sx + (math.random() - 0.5) * 28
+        sy = sy + (math.random() - 0.5) * 12
+
+        local holder = Instance.new('Frame')
+        holder.BackgroundTransparency = 1
+        holder.Size = UDim2.fromOffset(120, 40)
+        holder.AnchorPoint = Vector2.new(0.5, 0.5)
+        holder.Position = UDim2.fromOffset(sx, sy)
+        holder.Parent = gui
+
+        local lab = Instance.new('TextLabel')
+        lab.BackgroundTransparency = 1
+        lab.Size = UDim2.fromScale(1, 1)
+        lab.Font = Enum.Font.GothamBlack
+        lab.TextSize = tonumber(cfg.text_size) or 22
+        lab.Text = tostring(amount)
+        lab.TextStrokeTransparency = 0.35
+        lab.TextStrokeColor3 = Color3.new(0, 0, 0)
+        local c1 = cfg.color1 or Color3.fromRGB(255, 80, 80)
+        local c2 = cfg.color2 or Color3.fromRGB(255, 220, 40)
+        if headshot then
+            lab.TextColor3 = Color3.fromRGB(0, 255, 120)
+            lab.Text = tostring(amount) .. ' HS'
+        elseif tostring(cfg.color_type or '') == 'Gradient' then
+            lab.TextColor3 = c1:Lerp(c2, math.random())
+        else
+            lab.TextColor3 = c1
+        end
+        lab.Parent = holder
+
+        local rise = tonumber(cfg.rise) or 48
+        local dur = tonumber(cfg.duration) or 1.0
+        local t0 = tick()
+        local conn
+        conn = RunService.RenderStepped:Connect(function()
+            local a = (tick() - t0) / dur
+            if a >= 1 or not holder.Parent then
+                if conn then conn:Disconnect() end
+                pcall(function() holder:Destroy() end)
+                return
+            end
+            holder.Position = UDim2.fromOffset(sx, sy - rise * a)
+            lab.TextTransparency = math.clamp((a - 0.55) / 0.45, 0, 1)
+            lab.TextStrokeTransparency = 0.35 + 0.65 * math.clamp((a - 0.55) / 0.45, 0, 1)
+        end)
+    end
+
+    -- Mark attack on mouse / touch so HealthChanged path fires
+    local function mark()
+        getgenv()._nhLastAttack = tick()
+        if type(rawget(getgenv(), 'NH_MarkAttack')) == 'function' then
+            pcall(getgenv().NH_MarkAttack)
+        end
+    end
+    pcall(function()
+        UIS.InputBegan:Connect(function(inp, gpe)
+            if gpe then return end
+            if inp.UserInputType == Enum.UserInputType.MouseButton1
+                or inp.UserInputType == Enum.UserInputType.Touch then
+                mark()
+            end
+        end)
+    end)
+
+    -- Retarget all existing players health trackers for dmg numbers
+    local function hookHum(plr, hum, char)
+        if not hum or hum:GetAttribute('NH_DmgHooked') then return end
+        hum:SetAttribute('NH_DmgHooked', true)
+        local last = hum.Health
+        hum.HealthChanged:Connect(function(newHp)
+            local diff = last - newHp
+            last = newHp
+            if diff < 0.5 then return end
+            local recent = (tick() - (getgenv()._nhLastAttack or 0)) < 1.35
+            if not recent then return end
+            local head = char and (char:FindFirstChild('Head') or char:FindFirstChild('HumanoidRootPart'))
+            local pos = head and head.Position or Vector3.new()
+            local isHS = head and head:IsA('BasePart') and diff >= 40
+            pcall(function()
+                getgenv().NH_ShowDamageNumber(pos, diff, isHS)
+            end)
+        end)
+    end
+    local function watchPlr(plr)
+        if plr == LP then return end
+        local function onChar(char)
+            local hum = char:FindFirstChildOfClass('Humanoid') or char:WaitForChild('Humanoid', 4)
+            if hum then hookHum(plr, hum, char) end
+        end
+        plr.CharacterAdded:Connect(onChar)
+        if plr.Character then onChar(plr.Character) end
+    end
+    for _, p in ipairs(Players:GetPlayers()) do watchPlr(p) end
+    Players.PlayerAdded:Connect(watchPlr)
+
+    -- Force enable path when UI toggle is used (already wired to NH_DmgNum.enable)
+
+    -- ========== BULLET TRACERS dual color + curve + through walls ==========
+    getgenv().NH_BulletTracer = getgenv().NH_BulletTracer or {
+        enable = false,
+        color1 = Color3.fromRGB(120, 200, 255),
+        color2 = Color3.fromRGB(255, 80, 160),
+        life = 0.4,
+        curve_walls = false,
+        through_walls = true,
+    }
+
+    local function muzzlePos()
+        local char = LP.Character
+        local hrp = char and char:FindFirstChild('HumanoidRootPart')
+        local cam = Workspace.CurrentCamera
+        if cam then
+            return cam.CFrame.Position + cam.CFrame.LookVector * 1.2 + cam.CFrame.RightVector * 0.35
+        end
+        return hrp and hrp.Position or Vector3.zero
+    end
+
+    local function spawnTracer(from, to)
+        local cfg = getgenv().NH_BulletTracer
+        if not cfg or not cfg.enable then return end
+        local c1 = cfg.color1 or Color3.fromRGB(120, 200, 255)
+        local c2 = cfg.color2 or Color3.fromRGB(255, 80, 160)
+        local life = tonumber(cfg.life) or 0.4
+        local curve = cfg.curve_walls == true
+        local through = cfg.through_walls == true
+
+        local mid = from:Lerp(to, 0.5)
+        if curve then
+            local side = Cam.CFrame.RightVector * ((math.random() > 0.5) and 1 or -1) * (4 + math.random() * 6)
+            mid = mid + side + Vector3.new(0, 2 + math.random() * 3, 0)
+        end
+
+        local function seg(a, b, col)
+            local p0 = Instance.new('Part')
+            p0.Anchored = true
+            p0.CanCollide = false
+            p0.CanQuery = false
+            p0.Transparency = 1
+            p0.Size = Vector3.new(0.1, 0.1, 0.1)
+            p0.Position = a
+            p0.Parent = Workspace
+            local p1 = Instance.new('Part')
+            p1.Anchored = true
+            p1.CanCollide = false
+            p1.CanQuery = false
+            p1.Transparency = 1
+            p1.Size = Vector3.new(0.1, 0.1, 0.1)
+            p1.Position = b
+            p1.Parent = Workspace
+            local a0 = Instance.new('Attachment', p0)
+            local a1 = Instance.new('Attachment', p1)
+            local beam = Instance.new('Beam')
+            beam.Attachment0 = a0
+            beam.Attachment1 = a1
+            beam.Width0 = 0.14
+            beam.Width1 = 0.03
+            beam.FaceCamera = true
+            beam.LightEmission = 1
+            beam.LightInfluence = 0
+            beam.Color = ColorSequence.new(col, col)
+            beam.Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0.0),
+                NumberSequenceKeypoint.new(0.7, 0.2),
+                NumberSequenceKeypoint.new(1, 0.7),
+            })
+            beam.Segments = curve and 18 or 8
+            if through then
+                beam.ZOffset = 2
+            end
+            beam.Parent = p0
+            task.delay(life, function()
+                pcall(function() p0:Destroy() end)
+                pcall(function() p1:Destroy() end)
+            end)
+        end
+        seg(from, mid, c1)
+        seg(mid, to, c2)
+    end
+    getgenv().NH_SpawnBulletTracer = spawnTracer
+
+    local lastShot = 0
+    RunService.Heartbeat:Connect(function()
+        local cfg = getgenv().NH_BulletTracer
+        if not cfg or not cfg.enable then return end
+        local t = getgenv().__NH_LastGunShot or 0
+        if t > lastShot and (tick() - t) < 0.12 then
+            lastShot = t
+            local from = muzzlePos()
+            local to = from + Cam.CFrame.LookVector * 90
+            if getgenv().Cerus_RageAimPoint then
+                to = getgenv().Cerus_RageAimPoint
+            else
+                local best, bd
+                for _, pl in ipairs(Players:GetPlayers()) do
+                    if pl ~= LP and pl.Character then
+                        local h = pl.Character:FindFirstChild('Head')
+                        local hum = pl.Character:FindFirstChildOfClass('Humanoid')
+                        if h and hum and hum.Health > 0 then
+                            local d = (h.Position - from).Magnitude
+                            if not bd or d < bd then best, bd = h.Position, d end
+                        end
+                    end
+                end
+                if best and bd and bd < 280 then to = best end
+            end
+            spawnTracer(from, to)
+            mark()
+        end
+    end)
+
+    -- ========== ESP 5D ULTRA HQ ==========
+    local five = {}
+    local function clear5(plr)
+        local f = five[plr]
+        if f then pcall(function() f:Destroy() end) five[plr] = nil end
+        local head = plr.Character and plr.Character:FindFirstChild('Head')
+        if head then
+            local g = head:FindFirstChild('NH_ESP5D_Glow')
+            if g then pcall(function() g:Destroy() end) end
+        end
+    end
+    local function ensure5(plr, char)
+        if five[plr] and five[plr].Parent then return five[plr] end
+        clear5(plr)
+        local f = Instance.new('Folder')
+        f.Name = 'NH_ESP5D_' .. plr.UserId
+        f.Parent = char
+        local function hl(name, fillT, outT, depth)
+            local h = Instance.new('Highlight')
+            h.Name = name
+            h.Adornee = char
+            h.DepthMode = depth or Enum.HighlightDepthMode.AlwaysOnTop
+            h.FillTransparency = fillT
+            h.OutlineTransparency = outT
+            h.Parent = f
+            return h
+        end
+        hl('Rim', 0.55, 0.05, Enum.HighlightDepthMode.AlwaysOnTop)
+        hl('Inner', 0.82, 0.35, Enum.HighlightDepthMode.Occluded)
+        local box = Instance.new('SelectionBox')
+        box.Name = 'Box'
+        box.Adornee = char:FindFirstChild('HumanoidRootPart') or char:FindFirstChildWhichIsA('BasePart')
+        box.LineThickness = 0.04
+        box.SurfaceTransparency = 0.85
+        box.Parent = f
+        local head = char:FindFirstChild('Head')
+        if head then
+            local light = Instance.new('PointLight')
+            light.Name = 'NH_ESP5D_Glow'
+            light.Brightness = 1.6
+            light.Range = 10
+            light.Parent = head
+        end
+        -- name tag billboard HQ
+        if head then
+            local bb = Instance.new('BillboardGui')
+            bb.Name = 'Name5D'
+            bb.Size = UDim2.fromOffset(160, 28)
+            bb.StudsOffset = Vector3.new(0, 2.6, 0)
+            bb.AlwaysOnTop = true
+            bb.MaxDistance = 2500
+            bb.Adornee = head
+            bb.Parent = f
+            local t = Instance.new('TextLabel')
+            t.BackgroundTransparency = 1
+            t.Size = UDim2.fromScale(1, 1)
+            t.Font = Enum.Font.GothamBold
+            t.TextSize = 14
+            t.TextColor3 = Color3.new(1, 1, 1)
+            t.TextStrokeTransparency = 0.4
+            t.Text = plr.DisplayName or plr.Name
+            t.Parent = bb
+        end
+        five[plr] = f
+        return f
+    end
+    RunService.RenderStepped:Connect(function()
+        if getgenv().ESPEnabled ~= true or getgenv().ESPStyle ~= '5D' then
+            for p in pairs(five) do clear5(p) end
+            return
+        end
+        local col = getgenv().ESPColor or Color3.fromRGB(255, 60, 90)
+        local seen = {}
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LP and plr.Character then
+                local hum = plr.Character:FindFirstChildOfClass('Humanoid')
+                if hum and hum.Health > 0 then
+                    seen[plr] = true
+                    local f = ensure5(plr, plr.Character)
+                    if f then
+                        local rim = f:FindFirstChild('Rim')
+                        local inn = f:FindFirstChild('Inner')
+                        local box = f:FindFirstChild('Box')
+                        if rim then
+                            rim.FillColor = col
+                            rim.OutlineColor = Color3.new(1, 1, 1):Lerp(col, 0.25)
+                            rim.FillTransparency = tonumber(getgenv().ESPChamsFillAlpha) or 0.55
+                            rim.OutlineTransparency = tonumber(getgenv().ESPChamsOutlineAlpha) or 0.05
+                        end
+                        if inn then
+                            inn.FillColor = col
+                            inn.OutlineColor = col
+                        end
+                        if box then
+                            box.Color3 = col
+                            box.SurfaceColor3 = col
+                            local hrp = plr.Character:FindFirstChild('HumanoidRootPart')
+                            if hrp then box.Adornee = hrp end
+                        end
+                        local head = plr.Character:FindFirstChild('Head')
+                        local light = head and head:FindFirstChild('NH_ESP5D_Glow')
+                        if light and light:IsA('PointLight') then
+                            light.Color = col
+                        end
+                        local bb = f:FindFirstChild('Name5D')
+                        local lab = bb and bb:FindFirstChildOfClass('TextLabel')
+                        if lab then
+                            lab.Text = string.format('%s  [%d]', plr.DisplayName or plr.Name, math.floor(hum.Health))
+                            lab.TextColor3 = col
+                        end
+                    end
+                end
+            end
+        end
+        for p in pairs(five) do if not seen[p] then clear5(p) end end
+    end)
+    Players.PlayerRemoving:Connect(function(p) clear5(p) end)
+
+    -- ========== ANTIRAGE (Legit assist) ==========
+    getgenv().NH_Antirage = getgenv().NH_Antirage or {
+        enable = false,
+        predict = 0.18,
+        hop = true,
+        distance = 18,
+        mode = 'Predict Peek', -- Predict Peek / Side Strafe / Vertical Escape
+    }
+
+    -- UI injection into Legit if possible
+    pcall(function()
+        local Tabs = rawget(getgenv(), 'NH_Tabs') or nil
+        -- fallback: create floating? better wire via existing AssistGroup flags only
+    end)
+
+    -- runtime antirage: when enemy looks/shoots near you, sideways/up micro move + velocity
+    local lastAnti = 0
+    RunService.Heartbeat:Connect(function()
+        local ar = getgenv().NH_Antirage
+        if not ar or not ar.enable then return end
+        if tick() - lastAnti < 0.05 then return end
+        local char = LP.Character
+        local hrp = char and char:FindFirstChild('HumanoidRootPart')
+        local hum = char and char:FindFirstChildOfClass('Humanoid')
+        if not hrp or not hum or hum.Health <= 0 then return end
+        local threat, tdist
+        for _, pl in ipairs(Players:GetPlayers()) do
+            if pl ~= LP and pl.Character then
+                local ehrp = pl.Character:FindFirstChild('HumanoidRootPart')
+                local ehum = pl.Character:FindFirstChildOfClass('Humanoid')
+                if ehrp and ehum and ehum.Health > 0 then
+                    local d = (ehrp.Position - hrp.Position).Magnitude
+                    if d < (tonumber(ar.distance) or 18) then
+                        if not tdist or d < tdist then threat, tdist = ehrp, d end
+                    end
+                end
+            end
+        end
+        if not threat then return end
+        lastAnti = tick()
+        local pred = tonumber(ar.predict) or 0.18
+        local vel = threat.AssemblyLinearVelocity or Vector3.zero
+        local aimAt = threat.Position + vel * pred
+        local away = (hrp.Position - aimAt)
+        if away.Magnitude < 0.1 then away = hrp.CFrame.RightVector end
+        away = away.Unit
+        local mode = tostring(ar.mode or 'Predict Peek')
+        local boost = Vector3.zero
+        if mode == 'Side Strafe' then
+            boost = hrp.CFrame.RightVector * ((math.random() > 0.5) and 28 or -28)
+        elseif mode == 'Vertical Escape' then
+            boost = Vector3.new(0, 42, 0) + away * 12
+        else -- Predict Peek
+            boost = away * 22 + hrp.CFrame.RightVector * ((math.random() > 0.5) and 16 or -16)
+            if ar.hop then boost = boost + Vector3.new(0, 18, 0) end
+        end
+        pcall(function()
+            hrp.AssemblyLinearVelocity = Vector3.new(boost.X, math.max(hrp.AssemblyLinearVelocity.Y, boost.Y), boost.Z)
+        end)
+    end)
+
+    -- Try to add Antirage controls to existing Legit Assist via deferred flags UI already present
+    -- Expose getgenv flags so manual/SaveManager can bind
+    getgenv().AntirageEnabled = false
+    RunService.Heartbeat:Connect(function()
+        -- mirror simple flag
+        if getgenv().AntirageEnabled ~= nil then
+            getgenv().NH_Antirage.enable = getgenv().AntirageEnabled == true
+        end
+    end)
+
+    print('[Novhook] FINAL: DmgNum SCREEN+WORLD, Tracer dual/curve/through, ESP 5D HQ, Antirage runtime')
+end)
+
+-- Antirage UI on Legit Assist (safe deferred)
+task.defer(function()
+    pcall(function()
+        -- recreate group if AssistGroup still alive in closure — use Library registry if available
+        local lib = rawget(getgenv(), 'Library') or Library
+        if not lib then return end
+        -- Soft UI via notifications only if group missing
+    end)
+end)
+
+-- Direct Antirage groupbox if Tabs still in scope
+pcall(function()
+    if not Tabs or not Tabs.Legit then return end
+    local AR = Tabs.Legit:AddRightGroupbox('Antirage')
+    getgenv().NH_Antirage = getgenv().NH_Antirage or {
+        enable = false, predict = 0.18, hop = true, distance = 18, mode = 'Predict Peek',
+    }
+    AR:AddToggle('NH_AntirageEnable', {
+        Text = 'Antirage',
+        Default = false,
+        Callback = function(v)
+            getgenv().NH_Antirage.enable = v and true or false
+            getgenv().AntirageEnabled = v and true or false
+        end,
+    })
+    AR:AddDropdown('NH_AntirageMode', {
+        Text = 'Mode',
+        Values = { 'Predict Peek', 'Side Strafe', 'Vertical Escape' },
+        Default = 1,
+        Callback = function(v)
+            getgenv().NH_Antirage.mode = tostring(v)
+        end,
+    })
+    AR:AddSlider('NH_AntirageDist', {
+        Text = 'Threat Distance',
+        Default = 18, Min = 6, Max = 60, Rounding = 0,
+        Callback = function(v) getgenv().NH_Antirage.distance = tonumber(v) or 18 end,
+    })
+    AR:AddSlider('NH_AntiragePred', {
+        Text = 'Predict',
+        Default = 0.18, Min = 0.05, Max = 0.45, Rounding = 2,
+        Callback = function(v) getgenv().NH_Antirage.predict = tonumber(v) or 0.18 end,
+    })
+    AR:AddToggle('NH_AntirageHop', {
+        Text = 'Hop Assist',
+        Default = true,
+        Callback = function(v) getgenv().NH_Antirage.hop = v and true or false end,
+    })
+    AR:AddLabel('Counters nearby rage pressure')
+end)
+
+print('[Novhook Premium V2] Damage Numbers + ESP 5D + Tracers + Antirage ready')
