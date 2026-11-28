@@ -37,7 +37,7 @@ pcall(function()
         local re = Instance.new("RemoteEvent")
         local ure = Instance.new("UnreliableRemoteEvent")
         getgenv().__NH_UseSleepyCore = true
-getgenv().HeadStuds = getgenv().HeadStuds or 3
+getgenv().HeadStuds = getgenv().HeadStuds or 1.2
 getgenv().DesyncDist = getgenv().DesyncDist or 3 -- pure packet rage only
 getgenv().__NH_FireServer = clonefn(re.FireServer)
         getgenv().__NH_UFireServer = clonefn(ure.FireServer)
@@ -3439,6 +3439,8 @@ end)
 -- old complex void removed (void at EOF)
 
 -- ===== Ragebot: Void Spam =====
+-- Projectile TP: always ON with ragebot (no UI toggle)
+getgenv().ProjectileTPEnabled = true
 VoidSpamGroup:AddLabel('— Void Spam —')
 VoidSpamGroup:AddToggle('VoidSpamEnable', {
     Text = 'Void Spam',
@@ -4438,7 +4440,7 @@ local currentRandomOffset = Vector3.zero
 local togglePositionState = false
 
 getgenv().RageStyle = getgenv().RageStyle or "Attack"
-getgenv().HeadStuds = 5
+getgenv().HeadStuds = 1.2
 getgenv().BackStuds = 3
 getgenv().RageSpeed = 0.5
 
@@ -4468,8 +4470,9 @@ WeaponGroup:AddToggle('RageBotToggle', {
         if getgenv().Config then getgenv().Config.Enabled = Value and true or false end
         if Value then
             getgenv().__NH_RageInstant = true
+            getgenv().RageVoidEvade = true
+            getgenv().HeadStuds = math.clamp(tonumber(getgenv().HeadStuds) or 1.2, 0.35, 1.8)
         else
-            -- 다른 레이지 토글도 꺼져 있으면 완전 정지
             if not getgenv().HVHRageEnabled and not getgenv().KnifeModeEnabled then
                 getgenv().ragebotOrKillAura = false
                 getgenv().__NH_RageInstant = false
@@ -4488,6 +4491,8 @@ WeaponGroup:AddToggle('HVHRageToggle', {
         if Value then
             getgenv().__NH_RageInstant = true
             getgenv().ragebotOrKillAura = true
+            getgenv().RageVoidEvade = true -- 안맞게 보이드식 클라 이동
+            getgenv().HeadStuds = math.clamp(tonumber(getgenv().HeadStuds) or 1.2, 0.35, 1.8)
         else
             getgenv().ragebotOrKillAura = false
             if not getgenv().MeleeRageBotEnabled and not getgenv().KnifeModeEnabled then
@@ -7438,7 +7443,7 @@ pcall(function() SaveManager:BuildConfigSection(Tabs['UI Settings']) end)
 -- desync body + encodeShot from head+0.12
 -- =====================================================================
 getgenv().__NH_UseSleepyCore = true
-getgenv().HeadStuds = getgenv().HeadStuds or 3
+getgenv().HeadStuds = getgenv().HeadStuds or 1.2
 getgenv().DesyncDist = getgenv().DesyncDist or 3
 
 task.spawn(function()
@@ -7704,15 +7709,39 @@ task.spawn(function()
             or char:FindFirstChild("HitboxHeadSmall")
             or char:FindFirstChild("Head")
             or head
-        local from, headPos = me.Position, headPart.Position
+        local headPos = headPart.Position
+        -- 투사체 TP용 타겟 저장
+        getgenv().__NH_RageAimPart = headPart
+        getgenv().__NH_RageAimPos = headPos
+        getgenv().__NH_RageAimT = tick()
+        getgenv().__NH_RageAimChar = char
+
+        local from = me.Position
+        -- 투사체 무기: 원점을 타겟 바로 앞으로 당겨 히트 등록 강화
+        if true then -- Projectile TP always with rage
+            local dir = (headPos - from)
+            if dir.Magnitude > 1 then
+                from = headPos - dir.Unit * (1.2 + math.random() * 0.8)
+            else
+                from = headPos + Vector3.new(0, 0.2, 1.5)
+            end
+        end
+
         local fired = false
         if UseItem and id then
             for _, off in ipairs({
                 Vector3.zero, Vector3.new(0, 0.05, 0), Vector3.new(0, 0.1, 0),
                 Vector3.new(0.04, 0.06, 0), Vector3.new(-0.04, 0.06, 0),
+                Vector3.new(0, -0.05, 0), Vector3.new(0.08, 0.02, 0),
             }) do
                 local data = packet(from, headPos + off, headPart)
                 if data and fireUse(id, se, data) then fired = true end
+            end
+            -- 추가: 타겟 밀착 원점 패킷 (활/투사체 히트 강제)
+            if true then -- Projectile TP always with rage
+                local closeFrom = headPos + Vector3.new(0, 0.15, 0.35)
+                local data2 = packet(closeFrom, headPos, headPart)
+                if data2 then fireUse(id, se, data2) end
             end
         end
         pcall(function()
@@ -7779,6 +7808,7 @@ task.spawn(function()
 
         local head, root = targetParts()
         if not head or not root then return end
+        getgenv().__NH_RagePhase = (getgenv().__NH_RagePhase or 0) + 1
 
         -- 내 실제 위치 스냅샷
         local bodyCF = me.CFrame
@@ -7816,14 +7846,26 @@ task.spawn(function()
             me.CFrame = CFrame.lookAt(pos, head.Position)
             clientCF = nil -- 언더: 디싱크 복원 없음
         else
-            -- 기본: 머리 바로 위 N 스터드 (rot 섞지 않음)
+            -- HVH/Universal: 상대 머리에 바로 붙어서 공격 (서버 CF)
+            -- HeadStuds 작을수록 더 붙음 (기본 0.6~1.5)
             local studs = math.clamp(
-                tonumber(getgenv().HeadStuds) or tonumber(getgenv().DesyncDist) or 3,
-                1, 12
+                tonumber(getgenv().HeadStuds) or tonumber(getgenv().DesyncDist) or 1.2,
+                0.3, 12
             )
-            if hvh then studs = math.max(studs, 3) end
+            if hvh or onUniversal() then
+                studs = math.clamp(studs, 0.35, 1.8) -- 강제 근접 부착
+            end
             local pos = head.Position + Vector3.new(0, studs, 0)
-            -- GHOST / Void / Orbit server hints for desync registration
+            -- 약간 랜덤 오프셋으로 히트박스 중앙 유지
+            if hvh or onUniversal() then
+                local jitter = 0.15
+                pos = head.Position + Vector3.new(
+                    (math.random() - 0.5) * jitter,
+                    math.clamp(studs, 0.4, 1.6),
+                    (math.random() - 0.5) * jitter
+                )
+            end
+            -- GHOST / Void / Orbit server hints
             if getgenv().GhostEnabled and getgenv().GhostExecute ~= false then
                 local hint = getgenv().__NH_GhostServerHint
                 if typeof(hint) == "Vector3" and (hint - head.Position).Magnitude < 40 then
@@ -7834,22 +7876,63 @@ task.spawn(function()
                 local now = tick()
                 local vh = getgenv().__NH_VoidServerHint
                 local vt = getgenv().__NH_VoidServerHintT or 0
-                if typeof(vh) == "Vector3" and (now - vt) < 0.2 then
+                if typeof(vh) == "Vector3" and (now - vt) < 0.15 then
                     pos = vh
                 end
                 local oh = getgenv().__NH_OrbitServerHint
                 local ot = getgenv().__NH_OrbitServerHintT or 0
-                if typeof(oh) == "Vector3" and (now - ot) < 0.2 then
+                if typeof(oh) == "Vector3" and (now - ot) < 0.15 then
                     pos = oh
                 end
             end
             me.CFrame = CFrame.lookAt(pos, head.Position)
+            -- 레이지 타겟 공유 (플릭봇 시너지)
+            pcall(function()
+                local plr = Players:GetPlayerFromCharacter(head.Parent)
+                if plr then
+                    getgenv().__NH_RageTarget = plr
+                    getgenv().__NH_RageAimPart = head
+                    getgenv().__NH_RageTargetT = tick()
+                end
+            end)
         end
 
         setVel(me, bodyLV, bodyAV)
 
+        -- 클라 위치: 보이드식 회피 이동 (서버는 적에게 붙고, 클라는 안맞게 멀리)
         if not under then
-            clientCF, clientLV, clientAV = bodyCF, bodyLV, bodyAV
+            local evade = bodyCF
+            local evadeLV = bodyLV
+            local wantEvade = (hvh or onUniversal()) and (getgenv().RageVoidEvade ~= false)
+            if wantEvade then
+                local t = os.clock()
+                local ang = (t * 9.5 + (getgenv().__NH_RagePhase or 0)) % (math.pi * 2)
+                -- 보이드 스팸 켜져 있으면 그쪽이 클라 위치 담당
+                local voidOn = getgenv().VoidSpamEnabled == true or getgenv().__NH_VoidActive == true
+                if not voidOn then
+                    local dist = 55 + (math.sin(t * 4.2) * 25) + math.random() * 40
+                    local height = 8 + math.abs(math.sin(t * 3.1)) * 22 + math.random() * 12
+                    local ox = math.cos(ang) * dist
+                    local oz = math.sin(ang) * dist
+                    -- 가끔 반대편 점프
+                    if math.random() < 0.18 then
+                        ox, oz = -ox * 1.4, -oz * 1.4
+                        height = height + 15
+                    end
+                    local base = root.Position
+                    evade = CFrame.new(base.X + ox, base.Y + height, base.Z + oz)
+                    evadeLV = Vector3.new(
+                        math.cos(ang + 0.5) * 70,
+                        math.sin(t * 6) * 25,
+                        math.sin(ang + 0.5) * 70
+                    )
+                else
+                    -- void가 이미 클라 위치 흔들면 스냅샷 유지
+                    evade = bodyCF
+                    evadeLV = bodyLV
+                end
+            end
+            clientCF, clientLV, clientAV = evade, evadeLV, bodyAV
         end
 
         -- 발사 직전: 돔 있으면 이번 프레임 공격 스킵 (풀린 뒤에만 타격)
@@ -7867,25 +7950,28 @@ task.spawn(function()
             end
         end
 
-        -- 더 빠른 연사 + 무적 피어스 시 패킷 다발
-        local pierce = getgenv().RagePierceImmune == true
-        local gap = knifeMode and 0.02
-            or (hvh and (getgenv().WeaponSpeedEnabled and 0.008 or 0.012) or (pierce and 0.022 or 0.032))
+        -- 강화 연사 + 피어스 다발 + 투사체 TP 타겟 갱신
+        local pierce = getgenv().RagePierceImmune ~= false
+        local attachMode = hvh or onUniversal()
+        local gap = knifeMode and 0.012
+            or (attachMode and (getgenv().WeaponSpeedEnabled and 0.005 or 0.007)
+                or (pierce and 0.012 or 0.02))
         if tick() - lastShot >= gap then
             lastShot = tick()
             if targetPlr and NH_isImmuneHard and NH_isImmuneHard(targetPlr) then
                 return
             end
+            getgenv().__NH_ForceFlick = true
+            getgenv().__NH_ForceFlickT = tick()
+            getgenv().__NH_RageAimPart = head
+            getgenv().__NH_RageAimPos = head.Position
+            getgenv().__NH_RageAimT = tick()
+            getgenv().ProjectileTPEnabled = true
             if knifeMode then
-                remoteBackstab(head, root)
-                remoteBackstab(head, root)
-                if pierce then remoteBackstab(head, root) end
+                for _ = 1, 4 do remoteBackstab(head, root) end
             else
-                remoteHead(head)
-                remoteHead(head)
-                remoteHead(head)
-                if hvh or pierce then
-                    remoteHead(head)
+                local bursts = attachMode and 8 or (pierce and 6 or 4)
+                for _ = 1, bursts do
                     remoteHead(head)
                 end
             end
@@ -7893,6 +7979,25 @@ task.spawn(function()
                 if getgenv().NH_MarkAttack then getgenv().NH_MarkAttack() end
             end)
         end
+
+        -- 클라 회피 지터: 상대가 나를 맞추기 어렵게 (서버 히트박스는 디싱크로 머리 쪽)
+        pcall(function()
+            if clientCF and me and me.Parent then
+                local phase = getgenv().__NH_RagePhase or 0
+                local j = Vector3.new(
+                    math.sin(phase * 1.7) * 1.8 + (math.random() - 0.5) * 1.2,
+                    0.4 + math.cos(phase * 2.3) * 1.1,
+                    math.cos(phase * 1.9) * 1.8 + (math.random() - 0.5) * 1.2
+                )
+                clientCF = clientCF + j
+                local lv = me.AssemblyLinearVelocity
+                me.AssemblyLinearVelocity = Vector3.new(
+                    lv.X + (math.random() - 0.5) * 18,
+                    math.clamp(lv.Y, -25, 35),
+                    lv.Z + (math.random() - 0.5) * 18
+                )
+            end
+        end)
     end)
 end)
 
@@ -9207,19 +9312,31 @@ task.spawn(function()
     local function pickTarget()
         local cam = workspace.CurrentCamera
         if not cam then return nil, nil end
+        -- 레이지봇 타겟 우선 (시너지)
+        do
+            local rt = getgenv().__NH_RageTarget
+            local ra = getgenv().__NH_RageAimPart
+            local tt = getgenv().__NH_RageTargetT or 0
+            if rt and ra and ra.Parent and (tick() - tt) < 0.45 then
+                if not (NH_isImmuneHard and NH_isImmuneHard(rt)) then
+                    return rt, ra
+                end
+            end
+        end
         local fov = tonumber(getgenv().FlickBotFOV) or 180
         local best, bd, part = nil, fov, nil
         local mpos = UIS:GetMouseLocation()
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= LP and not isTeam(p) and p.Character then
-                if getgenv().NH_isImmune and getgenv().NH_isImmune(p) then continue end
+                if NH_isImmuneHard and NH_isImmuneHard(p) then continue end
                 local hum = p.Character:FindFirstChildOfClass("Humanoid")
                 local head = p.Character:FindFirstChild("Head")
+                    or p.Character:FindFirstChild("HitboxHead")
                 local hrp = p.Character:FindFirstChild("HumanoidRootPart")
                 local aim = head or hrp
                 if hum and hum.Health > 0 and aim then
-                    local sp, on = cam:WorldToViewportPoint(aim.Position)
-                    if on and sp.Z > 0 then
+                    local sp, onScreen = cam:WorldToViewportPoint(aim.Position)
+                    if onScreen and sp.Z > 0 then
                         local d = (Vector2.new(sp.X, sp.Y) - Vector2.new(mpos.X, mpos.Y)).Magnitude
                         if d < bd then
                             bd, best, part = d, p, aim
@@ -9237,15 +9354,21 @@ task.spawn(function()
         local cam = workspace.CurrentCamera
         if not cam then return end
         local spd = math.clamp(tonumber(getgenv().FlickBotSpeed) or 1, 0.05, 1)
-        -- 초공격 쿨다운 + 헤드 우선
-        local gap = 0.012 + (1 - spd) * 0.05
+        local rageOn = getgenv().MeleeRageBotEnabled == true
+            or getgenv().HVHRageEnabled == true
+            or getgenv().RagebotEnabled == true
+            or getgenv().ragebotOrKillAura == true
+        -- 레이지 중이면 플릭 더 공격적으로
+        local gap = rageOn and (0.006 + (1 - spd) * 0.02) or (0.012 + (1 - spd) * 0.05)
         if os.clock() - lastFlick < gap then return end
+        local forceFlick = getgenv().__NH_ForceFlick == true
+            and (tick() - (getgenv().__NH_ForceFlickT or 0)) < 0.12
         local firing = UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
             or UIS:IsKeyDown(Enum.KeyCode.ButtonR2)
-            or getgenv().RagebotEnabled == true
+            or rageOn
             or getgenv().GhostEnabled == true
-            or getgenv().__NH_ForceFlick == true
-            or true -- 상시 플릭 (가까운 적 헤드)
+            or forceFlick
+            or true
         local _, aimPart = pickTarget()
         if not aimPart then return end
         lastFlick = os.clock()
@@ -9962,6 +10085,190 @@ task.spawn(function()
     end)
 end)
 
+
+
+-- =====================================================================
+-- Projectile TP: move client projectiles onto rage target head
+-- =====================================================================
+task.spawn(function()
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local Workspace = game:GetService("Workspace")
+    local LP = Players.LocalPlayer
+
+    local tracked = setmetatable({}, { __mode = "k" })
+    local lastScan = 0
+
+    local function isCharacterPart(part)
+        local m = part:FindFirstAncestorOfClass("Model")
+        if not m then return false end
+        if Players:GetPlayerFromCharacter(m) then return true end
+        return false
+    end
+
+    local function looksLikeProjectile(obj)
+        if not obj or not obj:IsA("BasePart") then return false end
+        if isCharacterPart(obj) then return false end
+        local n = string.lower(obj.Name)
+        if n:find("projectile") or n:find("arrow") or n:find("bolt")
+            or n:find("rocket") or n:find("bullet") or n:find("thrown")
+            or n:find("knife") or n:find("shuriken") or n:find("spear")
+            or n:find("dart") or n:find("missile") or n:find("orb")
+            or n:find("grenade") or n:find("disc") or n:find("chakram") then
+            return true
+        end
+        -- high velocity unbound parts often are projectiles
+        local ok, v = pcall(function() return obj.AssemblyLinearVelocity end)
+        if ok and typeof(v) == "Vector3" and v.Magnitude > 60 then
+            if obj.CanCollide == false or obj.Massless == true then
+                return true
+            end
+        end
+        return false
+    end
+
+    local function ownedByMe(obj)
+        local ok, a = pcall(function()
+            return obj:GetAttribute("Owner")
+                or obj:GetAttribute("Creator")
+                or obj:GetAttribute("UserId")
+                or obj:GetAttribute("Player")
+                or obj:GetAttribute("OwnerUserId")
+        end)
+        if ok and a ~= nil then
+            local s = tostring(a)
+            if s == tostring(LP.UserId) or s == LP.Name then return true end
+            if s == "nil" or s == "" then return true end -- many client projs unmarked
+        end
+        -- parent folder heuristics
+        local p = obj.Parent
+        if p and (p.Name == "Projectiles" or p.Name == "Effects" or p.Name == "Debris"
+            or p.Name == "ClientProjectiles" or p.Name == "Thrown") then
+            return true
+        end
+        return true -- prefer TP; wrong-owner projs rarely match velocity+name
+    end
+
+    local function getAim()
+        local part = getgenv().__NH_RageAimPart
+        local pos = getgenv().__NH_RageAimPos
+        local t = getgenv().__NH_RageAimT or 0
+        if (tick() - t) > 1.25 then return nil, nil end
+        if part and part.Parent then
+            return part, part.Position
+        end
+        if typeof(pos) == "Vector3" then
+            return nil, pos
+        end
+        return nil, nil
+    end
+
+    local function tpProjectile(part, aimPart, aimPos)
+        if not part or not part.Parent then return end
+        local target = aimPos
+        if aimPart and aimPart.Parent then
+            target = aimPart.Position
+        end
+        if typeof(target) ~= "Vector3" then return end
+        pcall(function()
+            -- stick into head volume
+            local jitter = Vector3.new(
+                (math.random() - 0.5) * 0.15,
+                (math.random() - 0.5) * 0.12,
+                (math.random() - 0.5) * 0.15
+            )
+            local dest = target + jitter
+            part.CFrame = CFrame.new(dest)
+            part.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            part.AssemblyAngularVelocity = Vector3.zero
+            if typeof(part.Velocity) == "Vector3" then
+                part.Velocity = Vector3.zero
+            end
+            -- keep welded/aligned for a moment
+            tracked[part] = tick()
+        end)
+    end
+
+    local function scanAndTP()
+        if false then return end -- TP always on
+        local raging = getgenv().RagebotEnabled or getgenv().MeleeRageBotEnabled
+            or getgenv().ragebotOrKillAura or getgenv().__NH_RageDidShoot
+        if not raging then return end
+        local aimPart, aimPos = getAim()
+        if not aimPos then return end
+
+        local folders = {
+            Workspace:FindFirstChild("Projectiles"),
+            Workspace:FindFirstChild("ClientProjectiles"),
+            Workspace:FindFirstChild("Effects"),
+            Workspace:FindFirstChild("Debris"),
+            Workspace:FindFirstChild("Thrown"),
+            Workspace,
+        }
+        local seen = {}
+        for _, root in ipairs(folders) do
+            if root then
+                local kids
+                if root == Workspace then
+                    kids = root:GetChildren()
+                else
+                    kids = root:GetDescendants()
+                end
+                for _, obj in ipairs(kids) do
+                    if obj:IsA("BasePart") and not seen[obj] then
+                        seen[obj] = true
+                        if looksLikeProjectile(obj) and ownedByMe(obj) then
+                            tpProjectile(obj, aimPart, aimPos)
+                        end
+                    end
+                end
+            end
+        end
+        -- also keep already tracked glued for a short time
+        for part, t0 in pairs(tracked) do
+            if part and part.Parent and (tick() - t0) < 0.35 then
+                tpProjectile(part, aimPart, aimPos)
+            else
+                tracked[part] = nil
+            end
+        end
+    end
+
+    -- child added fast path
+    pcall(function()
+        Workspace.DescendantAdded:Connect(function(obj)
+            if false then return end -- TP always on
+            if not obj:IsA("BasePart") then return end
+            task.defer(function()
+                if looksLikeProjectile(obj) and ownedByMe(obj) then
+                    local aimPart, aimPos = getAim()
+                    if aimPos then
+                        tpProjectile(obj, aimPart, aimPos)
+                    end
+                end
+            end)
+        end)
+    end)
+
+    RunService.Heartbeat:Connect(function()
+        local now = os.clock()
+        if now - lastScan < 0.03 then return end
+        lastScan = now
+        pcall(scanAndTP)
+    end)
+
+    RunService.RenderStepped:Connect(function()
+        if false then return end -- TP always on
+        -- high-freq glue for tracked projectiles only
+        local aimPart, aimPos = getAim()
+        if not aimPos then return end
+        for part, t0 in pairs(tracked) do
+            if part and part.Parent and (tick() - t0) < 0.25 then
+                pcall(tpProjectile, part, aimPart, aimPos)
+            end
+        end
+    end)
+end)
 
 -- Void dark ambience (always, no UI) — soft night look while voiding
 task.spawn(function()
